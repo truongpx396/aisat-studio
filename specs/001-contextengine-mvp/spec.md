@@ -181,7 +181,7 @@ A member optionally connects a local agent to the workspace to run complex, mult
 - **FR-009**: System MUST retain conversational session context so follow-up questions are answered coherently.
 - **FR-010**: System MUST screen each user input and short-circuit disallowed content or obvious prompt-injection attempts before performing retrieval or consuming credits, recording the event.
 - **FR-011**: System MUST treat all retrieved document content and tool output as untrusted data, never as instructions, and MUST NOT allow injected text to trigger additional tool calls or escalate tool access.
-- **FR-012**: In Phase 1, the system MUST expose only read-only tools (search, lookup, structured queries, utilities); any future state-changing or message-sending action MUST require explicit human confirmation.
+- **FR-012**: In Phase 1, the system MUST expose only read-only tools (search, lookup, structured queries, utilities); the sole exception is a crawl utility that fetches an external page and enqueues it for ingestion into the caller's own workspace (no mutation of existing knowledge, no outbound message), which MUST be role-gated. Any future state-changing or message-sending action MUST require explicit human confirmation.
 
 **Workspace & Access Control**
 
@@ -252,7 +252,7 @@ A member optionally connects a local agent to the workspace to run complex, mult
 - **Phase scope**: Only Phase 1 (Core App) is in scope. Video/audio ingestion, payment/subscription UI, infographic/mind-map generation, agent file-edit actions, the full evaluation suite, and automated security red-teaming are deferred; structural prompt-injection defenses and a minimal evaluation seed set are included in Phase 1.
 - **Audience**: The primary audience is a developer/hiring showcase, so every architectural pattern must be observable and named in the UI.
 - **Authentication**: A standard authenticated session model is assumed; identity, workspaces, and invitations reuse the existing SaaS kernel.
-- **Clearance model**: Access is governed by a fixed ladder of 5 ordered numeric clearance levels (1–5); a member sees documents at or below their level plus their own personal documents. A new document with no explicitly chosen access level defaults to the uploader's own clearance level.
+- **Clearance model**: Access is governed by a fixed ladder of 5 ordered numeric clearance levels (1–5); a member sees documents at or below their level plus their own personal documents. A new document with no explicitly chosen access level defaults to the uploader's own clearance level. **Terminology**: a *user/member* carries a **clearance level**; a *document* carries an **access level**; a member may see a document when its `access_level` ≤ the member's clearance (referred to as `effective_access_level` in retrieval and the MCP contracts). These three names denote the same 1–5 ladder.
 - **Credit pricing**: Credits are priced proportionally to real AI cost with a margin; exact per-operation credit costs follow the documented pricing table and may be tuned without changing behavior.
 - **Connectivity**: Members have stable internet connectivity; large file uploads go directly to object storage via the application. Individual files are bounded by an admin-configurable per-file size limit per workspace (default 50 MB).
 - **Demo data**: New workspaces may be seeded with demo knowledge and structured records to demonstrate capabilities.

@@ -75,7 +75,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 ### Python tier chokepoints (LLM gateway, MCP server, access filter)
 
 - [ ] T025 [P] Contract test for LLM gateway (idempotency, one-hop fallback, embed-no-fallback, PII scrub) in `backend-python/tests/contract/test_llm_gateway.py` per [llm-gateway.md](./contracts/llm-gateway.md)
-- [ ] T026 Implement LLM gateway single chokepoint (`LLMRequest`/`LLMResponse`, alias resolution `fast`/`smart`/`embed`/`rerank`, idempotency, budget check, semantic cache, PII scrub, trace + `llm_call_log` write) in `backend-python/src/services/llm_gateway.py` (FR-024, FR-029, SC-006)
+- [ ] T026 Implement LLM gateway single chokepoint (`LLMRequest`/`LLMResponse`, alias resolution `fast`/`smart`/`embed`/`rerank`, idempotency, budget check, semantic cache, PII scrub via the shared `pii_scrub.py` of T123, trace + `llm_call_log` write) in `backend-python/src/services/llm_gateway.py` (FR-024, FR-029, SC-006)
 - [ ] T027 [P] Implement Qdrant access-control pre-filter helper (`workspace_id == ctx AND access_level <= effective_access_level`) in `backend-python/src/services/retrieval/filter.py` (FR-007, SC-001)
 - [ ] T028 Implement FastMCP server bootstrap + per-role `allowed_tools` allowlist dispatch guard in `backend-python/src/mcp_server/server.py` (FR-011, FR-012)
 - [ ] T029 [P] Implement FastAPI app entrypoint + NATS subscriber bootstrap in `backend-python/src/main.py`
@@ -145,6 +145,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 - [ ] T058 [P] [US2] Contract test for query SSE taxonomy + `DebugTrace` shape in `backend-go/tests/contract/query_sse_test.go` per [sse-events.md](./contracts/sse-events.md)
 - [ ] T059 [P] [US2] Contract test for MCP knowledge tools — `search_workspace_knowledge` never returns `access_level > effective_access_level`; structured tools reject raw SQL (typed filters only) in `backend-python/tests/contract/test_mcp_tools.py` per [mcp-tools.md](./contracts/mcp-tools.md)
 - [ ] T060 [P] [US2] Integration test for LangGraph graph happy path (moderate→rewrite→retrieve→rerank→memory→generate→cite) in `backend-python/tests/integration/test_agent_graph.py`
+- [ ] T060a [P] [US2] Integration test for empty/unanswerable query (no authorized documents relevant → grounded "no relevant information" refusal, no fabrication, no cross-clearance leak) in `backend-python/tests/integration/test_unanswerable_query.py` (FR-006, FR-007, SC-001)
 - [ ] T061 [P] [US2] Integration test for prompt-injection defenses (delimited retrieved doc with "ignore previous instructions" is treated as data; injected tool call does not escalate) in `backend-python/tests/integration/test_injection_defense.py` (FR-010, FR-011, SC-007)
 - [ ] T062 [P] [US2] Integration test for structured-data Tier 2 answer via fixed `query_employees/projects/metrics` tools in `backend-python/tests/integration/test_structured_query.py` (FR-008)
 
@@ -299,7 +300,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 **Purpose**: Reliability, observability, retention, evaluation gate, and final validation across all stories
 
 - [ ] T122 [P] Implement provider one-hop fallback + circuit breaker + `llm.fallback.count` metric (never on low-quality output) in `backend-python/src/services/llm_gateway.py` (FR-029)
-- [ ] T123 [P] Implement PII scrubbing before any trace/eval write + 30-day raw-body retention via partition `DROP` job in `backend-python/src/services/pii_scrub.py` and `backend-go/migrations/0015_retention_jobs.sql` (FR-024, Clarification Q5)
+- [ ] T123 [P] Implement the canonical PII scrubber in `backend-python/src/services/pii_scrub.py` (single implementation; the LLM gateway T026 is its only caller, covering both primary and one-hop-fallback calls) applied before any trace/eval write + 30-day raw-body retention via partition `DROP` job in `backend-go/migrations/0015_retention_jobs.sql` (FR-024, Clarification Q5)
 - [ ] T124 [P] Implement generic `audit_log` writer (tamper-evident fingerprint) for workspace/member actions in `backend-go/kernel/audit/audit.go` (FR-023)
 - [ ] T125 Implement Phase 1 eval seed set + runner (`evals/run.py`: ≥20 prompt cases; `prompts/retrieval/eval.py`: ≥30 golden queries) with the hard access-filter assertion (query at level N never returns doc > N) in `backend-python/evals/run.py` and `backend-python/prompts/retrieval/eval.py` (FR-030, SC-002, SC-003)
 - [ ] T126 [P] Wire CI gates into `Makefile`/CI: lint+format (gofmt/golangci-lint, ruff/black, eslint/prettier), ≥80% coverage per runtime, performance/bundle-size checks, security scan, and the Phase 1 eval gate

@@ -10,7 +10,7 @@ These contracts define the external/internal interfaces the system exposes. They
 |----------|---------|-----------|
 | [bff-rest.md](./bff-rest.md) | Go BFF public REST + SSE endpoints | React SPA, local agents |
 | [nats-subjects.md](./nats-subjects.md) | NATS subject schema | Go BFF ↔ Python workers |
-| [mcp-tools.md](./mcp-tools.md) | 7 MCP tools across 3 categories | LangGraph agent, local agents |
+| [mcp-tools.md](./mcp-tools.md) | 9 MCP tools across 3 categories | LangGraph agent, local agents |
 | [llm-gateway.md](./llm-gateway.md) | Python LLM gateway interface | All Python LLM call sites |
 | [sse-events.md](./sse-events.md) | SSE event taxonomy | Go BFF ↔ React SPA |
 

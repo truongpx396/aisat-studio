@@ -35,7 +35,7 @@ Technical approach: a three-runtime system — a Go BFF/gateway (kernel + agent 
 
 **Constraints**: 100% access-control correctness (SC-001, release blocker); injection/disallowed inputs refused before retrieval/spend (SC-007); exact credit accounting, no double-charge (SC-006); per-file upload size limit admin-configurable per workspace, default 50 MB; raw prompt/response retention 30 days; near-limit warning at admin-configurable threshold (default 80%); one-hop provider fallback only
 
-**Scale/Scope**: Phase 1 capacity — Go BFF 2 replicas, 3 Python worker pods per NATS subject, single Qdrant/NATS cluster, Postgres primary + 1 read replica; 7 user stories, ~30 functional requirements, 12+ key entities, 7 MCP tools
+**Scale/Scope**: Phase 1 capacity — Go BFF 2 replicas, 3 Python worker pods per NATS subject, single Qdrant/NATS cluster, Postgres primary + 1 read replica; 7 user stories, ~30 functional requirements, 12+ key entities, 9 MCP tools
 
 ## Constitution Check
 
@@ -75,7 +75,7 @@ specs/001-contextengine-mvp/
 │   ├── README.md            # Contract index + conventions
 │   ├── bff-rest.md          # Go BFF public REST + SSE endpoints
 │   ├── nats-subjects.md     # NATS subject schema (ingestion/query/billing)
-│   ├── mcp-tools.md         # 7 MCP tools across 3 categories
+│   ├── mcp-tools.md         # 9 MCP tools across 3 categories
 │   ├── llm-gateway.md       # Python LLM gateway interface + aliases/fallback
 │   └── sse-events.md        # SSE event taxonomy (BFF ↔ frontend)
 ├── checklists/
