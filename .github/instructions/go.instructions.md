@@ -131,6 +131,8 @@ Follow idiomatic Go practices and community standards when writing Go code. Thes
 - Prefer explicit type conversions
 - Use type assertions carefully and check the second return value
 - Prefer generics over unconstrained types; when an unconstrained type is truly needed, use the predeclared alias `any` instead of `interface{}` (Go 1.18+)
+- Design constraints with interface types or the `golang.org/x/exp/constraints` package (e.g., `constraints.Ordered`); keep constraints as narrow as the algorithm requires
+- Only introduce a type parameter when it removes real duplication or unsafe assertions; avoid generics when a concrete type or simple interface suffices
 
 ### Pointers vs Values
 
@@ -183,6 +185,23 @@ Follow idiomatic Go practices and community standards when writing Go code. Thes
 		wg.Wait()
 		```
 	- If `go < 1.25`, use the classic `Add`/`Done` pattern
+
+## Context
+
+- Pass `context.Context` as the first parameter, named `ctx`; never store it in structs
+- Propagate the incoming `ctx` down the call chain; only use `context.Background()` at the top level (e.g., `main`, tests)
+- Honor cancellation and deadlines: check `ctx.Err()` / `ctx.Done()` in long-running or blocking operations
+- Pass `ctx` to all I/O calls (DB, Redis, NATS, HTTP) so cancellation propagates to dependencies
+- Use `context.WithTimeout`/`WithCancel` for bounded operations and always `defer cancel()`
+- Use `context.Value` only for request-scoped data (e.g., trace IDs), never for optional parameters
+
+## Logging
+
+- Use structured logging with `zerolog`; avoid `log.Printf`, `fmt.Println`, or unstructured output for application logs
+- Attach contextual fields (request ID, trace ID, user ID) rather than formatting them into the message
+- Choose appropriate levels (`Debug`, `Info`, `Warn`, `Error`); reserve `Error` for actionable failures
+- Never log secrets, tokens, passwords, or PII
+- Either log an error or return it, not both (see Error Propagation below)
 
 ## Error Handling Patterns
 
@@ -309,11 +328,11 @@ Follow idiomatic Go practices and community standards when writing Go code. Thes
 
 ### Cryptography
 
-- Use standard library crypto packages
-- Don't implement your own cryptography
-- Use crypto/rand for random number generation
-- Store passwords using bcrypt, scrypt, or argon2 (consider golang.org/x/crypto for additional options)
-- Use TLS for network communication
+- Use standard library crypto packages; don't implement your own cryptography
+- Use `crypto/rand` (never `math/rand`) for tokens, salts, secrets, and any security-sensitive randomness
+- Hash passwords with Argon2id (`golang.org/x/crypto/argon2`); bcrypt with cost >= 12 is an acceptable fallback. Never use fast hashes (MD5, SHA-1, SHA-256) for passwords
+- Use TLS for network communication; never set `tls.Config.InsecureSkipVerify: true`
+- For full secure-coding requirements (password hashing, JWT, secrets, headers), follow `.github/instructions/security-and-owasp.instructions.md`, which takes precedence on security matters
 
 ## Documentation
 
@@ -361,6 +380,7 @@ Follow idiomatic Go practices and community standards when writing Go code. Thes
 - Ignoring race conditions
 - Creating goroutine leaks
 - Not using defer for cleanup
+- Using `defer` inside loops (deferred calls accumulate until the function returns); extract a function or close resources explicitly each iteration
 - Modifying maps concurrently
 - Not understanding nil interfaces vs nil pointers
 - Forgetting to close resources (files, connections)

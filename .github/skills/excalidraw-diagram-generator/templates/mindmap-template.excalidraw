@@ -51,8 +51,8 @@
       "type": "text",
       "x": 528.5,
       "y": 387.5,
-      "width": 143.0,
-      "height": 25.0,
+      "width": 143,
+      "height": 25,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -69,7 +69,7 @@
       "version": 1,
       "versionNonce": 1190001237,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1738195200000,
       "link": null,
       "locked": false,
@@ -87,7 +87,7 @@
       "id": "branch1",
       "type": "rectangle",
       "x": 250,
-      "y": 150,
+      "y": 155,
       "width": 150,
       "height": 80,
       "angle": 0,
@@ -105,8 +105,8 @@
         "type": 3
       },
       "seed": 3333333334,
-      "version": 2,
-      "versionNonce": 2040232045,
+      "version": 7,
+      "versionNonce": 110025917,
       "isDeleted": false,
       "boundElements": [
         {
@@ -118,7 +118,7 @@
           "id": "txt_branch1"
         }
       ],
-      "updated": 1769755912840,
+      "updated": 1781421860245,
       "link": null,
       "locked": false
     },
@@ -126,7 +126,7 @@
       "id": "txt_branch1",
       "type": "text",
       "x": 285.4,
-      "y": 178.75,
+      "y": 183.75,
       "width": 79.2,
       "height": 22.5,
       "angle": 0,
@@ -142,11 +142,11 @@
       "index": "a8",
       "roundness": null,
       "seed": 2012208833,
-      "version": 1,
-      "versionNonce": 2012208834,
+      "version": 6,
+      "versionNonce": 829779763,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 1738195200000,
+      "boundElements": [],
+      "updated": 1781421860246,
       "link": null,
       "locked": false,
       "text": "Branch 1",
@@ -162,10 +162,10 @@
     {
       "id": "arrow1",
       "type": "arrow",
-      "x": 600,
-      "y": 350,
-      "width": 246.39999389648438,
-      "height": 111.20001220703125,
+      "x": 597.6874698181616,
+      "y": 349.5492546400994,
+      "width": 251.90533270526646,
+      "height": 110.12083958513972,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -181,11 +181,11 @@
         "type": 2
       },
       "seed": 3333333335,
-      "version": 23,
-      "versionNonce": 308894189,
+      "version": 28,
+      "versionNonce": 333978003,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1769755914127,
+      "updated": 1781421860246,
       "link": null,
       "locked": false,
       "points": [
@@ -194,8 +194,8 @@
           0
         ],
         [
-          -246.39999389648438,
-          -111.20001220703125
+          -251.90533270526646,
+          -110.12083958513972
         ]
       ],
       "startBinding": {
@@ -215,8 +215,8 @@
     {
       "id": "branch2",
       "type": "rectangle",
-      "x": 750,
-      "y": 150,
+      "x": 750.0076231858037,
+      "y": 154.24394194571997,
       "width": 150,
       "height": 80,
       "angle": 0,
@@ -234,8 +234,8 @@
         "type": 3
       },
       "seed": 3333333336,
-      "version": 2,
-      "versionNonce": 1459929741,
+      "version": 7,
+      "versionNonce": 785894483,
       "isDeleted": false,
       "boundElements": [
         {
@@ -247,15 +247,15 @@
           "id": "txt_branch2"
         }
       ],
-      "updated": 1769755916716,
+      "updated": 1781421864437,
       "link": null,
       "locked": false
     },
     {
       "id": "txt_branch2",
       "type": "text",
-      "x": 785.4,
-      "y": 178.75,
+      "x": 785.4076231858037,
+      "y": 182.99394194571997,
       "width": 79.2,
       "height": 22.5,
       "angle": 0,
@@ -271,11 +271,11 @@
       "index": "aB",
       "roundness": null,
       "seed": 1626124494,
-      "version": 1,
-      "versionNonce": 1626124495,
+      "version": 6,
+      "versionNonce": 962544317,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 1738195200000,
+      "boundElements": [],
+      "updated": 1781421864437,
       "link": null,
       "locked": false,
       "text": "Branch 2",
@@ -291,10 +291,10 @@
     {
       "id": "arrow2",
       "type": "arrow",
-      "x": 600,
-      "y": 350,
-      "width": 216,
-      "height": 112.80001831054688,
+      "x": 601.8488539975191,
+      "y": 349.5492546400994,
+      "width": 219.84775117946026,
+      "height": 111.72004135205668,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -310,11 +310,11 @@
         "type": 2
       },
       "seed": 3333333337,
-      "version": 41,
-      "versionNonce": 1447859213,
+      "version": 46,
+      "versionNonce": 613946973,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1769756030188,
+      "updated": 1781421864437,
       "link": null,
       "locked": false,
       "points": [
@@ -323,8 +323,8 @@
           0
         ],
         [
-          216,
-          -112.80001831054688
+          219.84775117946026,
+          -111.72004135205668
         ]
       ],
       "startBinding": {

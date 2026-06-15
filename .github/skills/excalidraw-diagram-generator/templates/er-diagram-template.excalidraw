@@ -1,7 +1,7 @@
 {
   "type": "excalidraw",
   "version": 2,
-  "source": "https://excalidraw.com",
+  "source": "https://marketplace.visualstudio.com/items?itemName=pomdtr.excalidraw-editor",
   "elements": [
     {
       "id": "entity-1",
@@ -26,7 +26,7 @@
       "version": 1,
       "versionNonce": 6002002001,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false
@@ -54,7 +54,7 @@
       "version": 1,
       "versionNonce": 6002002002,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -62,7 +62,11 @@
       "fontSize": 20,
       "fontFamily": 1,
       "textAlign": "center",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "User",
+      "autoResize": true,
+      "lineHeight": 1.25
     },
     {
       "id": "entity-separator-1",
@@ -87,7 +91,7 @@
       "version": 1,
       "versionNonce": 6002002003,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -102,7 +106,10 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null,
+      "startArrowhead": null,
+      "endArrowhead": null
     },
     {
       "id": "attributes-1",
@@ -127,7 +134,7 @@
       "version": 1,
       "versionNonce": 6002002004,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -135,7 +142,11 @@
       "fontSize": 14,
       "fontFamily": 1,
       "textAlign": "left",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "PK: user_id\nname\nemail\ncreated_at",
+      "autoResize": true,
+      "lineHeight": 1.4285714285714286
     },
     {
       "id": "entity-2",
@@ -160,7 +171,7 @@
       "version": 1,
       "versionNonce": 6002002005,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false
@@ -188,7 +199,7 @@
       "version": 1,
       "versionNonce": 6002002006,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -196,7 +207,11 @@
       "fontSize": 20,
       "fontFamily": 1,
       "textAlign": "center",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "Order",
+      "autoResize": true,
+      "lineHeight": 1.25
     },
     {
       "id": "entity-separator-2",
@@ -221,7 +236,7 @@
       "version": 1,
       "versionNonce": 6002002007,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -236,7 +251,10 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null,
+      "startArrowhead": null,
+      "endArrowhead": null
     },
     {
       "id": "attributes-2",
@@ -261,7 +279,7 @@
       "version": 1,
       "versionNonce": 6002002008,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -269,7 +287,11 @@
       "fontSize": 14,
       "fontFamily": 1,
       "textAlign": "left",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "PK: order_id\nFK: user_id\ntotal_amount\norder_date",
+      "autoResize": true,
+      "lineHeight": 1.4285714285714286
     },
     {
       "id": "relationship-line",
@@ -294,7 +316,7 @@
       "version": 1,
       "versionNonce": 6002002009,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -309,7 +331,10 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null,
+      "startArrowhead": null,
+      "endArrowhead": null
     },
     {
       "id": "cardinality-1",
@@ -334,7 +359,7 @@
       "version": 1,
       "versionNonce": 6002002010,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -342,7 +367,11 @@
       "fontSize": 16,
       "fontFamily": 1,
       "textAlign": "left",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "1",
+      "autoResize": true,
+      "lineHeight": 1.25
     },
     {
       "id": "cardinality-2",
@@ -367,7 +396,7 @@
       "version": 1,
       "versionNonce": 6002002011,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -375,7 +404,11 @@
       "fontSize": 16,
       "fontFamily": 1,
       "textAlign": "left",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "N",
+      "autoResize": true,
+      "lineHeight": 1.25
     },
     {
       "id": "relationship-label",
@@ -400,7 +433,7 @@
       "version": 1,
       "versionNonce": 6002002012,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -408,7 +441,11 @@
       "fontSize": 14,
       "fontFamily": 1,
       "textAlign": "center",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "places",
+      "autoResize": true,
+      "lineHeight": 1.4285714285714286
     },
     {
       "id": "entity-3",
@@ -433,7 +470,7 @@
       "version": 1,
       "versionNonce": 6002002013,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false
@@ -461,7 +498,7 @@
       "version": 1,
       "versionNonce": 6002002014,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -469,7 +506,11 @@
       "fontSize": 20,
       "fontFamily": 1,
       "textAlign": "center",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "Product",
+      "autoResize": true,
+      "lineHeight": 1.25
     },
     {
       "id": "entity-separator-3",
@@ -494,7 +535,7 @@
       "version": 1,
       "versionNonce": 6002002015,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -509,7 +550,10 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null,
+      "startArrowhead": null,
+      "endArrowhead": null
     },
     {
       "id": "attributes-3",
@@ -534,7 +578,7 @@
       "version": 1,
       "versionNonce": 6002002016,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -542,7 +586,11 @@
       "fontSize": 14,
       "fontFamily": 1,
       "textAlign": "left",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "PK: product_id\nname\nprice",
+      "autoResize": true,
+      "lineHeight": 1.1904761904761905
     },
     {
       "id": "relationship-line-2",
@@ -567,7 +615,7 @@
       "version": 1,
       "versionNonce": 6002002017,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -582,7 +630,10 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null,
+      "startArrowhead": null,
+      "endArrowhead": null
     },
     {
       "id": "cardinality-3",
@@ -607,7 +658,7 @@
       "version": 1,
       "versionNonce": 6002002018,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -615,7 +666,11 @@
       "fontSize": 16,
       "fontFamily": 1,
       "textAlign": "left",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "N",
+      "autoResize": true,
+      "lineHeight": 1.25
     },
     {
       "id": "cardinality-4",
@@ -640,7 +695,7 @@
       "version": 1,
       "versionNonce": 6002002019,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -648,13 +703,17 @@
       "fontSize": 16,
       "fontFamily": 1,
       "textAlign": "left",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "M",
+      "autoResize": true,
+      "lineHeight": 1.25
     },
     {
       "id": "relationship-label-2",
       "type": "text",
-      "x": 490,
-      "y": 330,
+      "x": 469.70917413595544,
+      "y": 328.8382928660951,
       "width": 80,
       "height": 20,
       "angle": 0,
@@ -670,23 +729,29 @@
       "index": "aT",
       "roundness": null,
       "seed": 5001001020,
-      "version": 1,
-      "versionNonce": 6002002020,
+      "version": 21,
+      "versionNonce": 105026939,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 1706659200000,
+      "boundElements": [],
+      "updated": 1781421819638,
       "link": null,
       "locked": false,
       "text": "contains",
       "fontSize": 14,
       "fontFamily": 1,
       "textAlign": "center",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "contains",
+      "autoResize": true,
+      "lineHeight": 1.4285714285714286
     }
   ],
   "appState": {
-    "viewBackgroundColor": "#ffffff",
-    "gridSize": 20
+    "gridSize": 20,
+    "gridStep": 5,
+    "gridModeEnabled": false,
+    "viewBackgroundColor": "#ffffff"
   },
   "files": {}
 }

@@ -499,10 +499,10 @@
     {
       "id": "inheritance-triangle",
       "type": "line",
-      "x": 314.1999816894531,
-      "y": 181.5,
-      "width": 15,
-      "height": 15,
+      "x": 300.8835754394531,
+      "y": 180.4267830409965,
+      "width": 15.65625,
+      "height": 18.077123209003503,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "#ffffff",
@@ -516,11 +516,11 @@
       "index": "aR",
       "roundness": null,
       "seed": 3001001014,
-      "version": 21,
-      "versionNonce": 1468657767,
+      "version": 239,
+      "versionNonce": 422133806,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1769756005117,
+      "updated": 1781421699738,
       "link": null,
       "locked": false,
       "points": [
@@ -529,12 +529,12 @@
           0
         ],
         [
-          -15,
-          15
+          0.48046875,
+          18.077123209003503
         ],
         [
-          0,
-          15
+          15.65625,
+          8.737279459003503
         ],
         [
           0,

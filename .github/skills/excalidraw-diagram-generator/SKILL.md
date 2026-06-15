@@ -115,6 +115,40 @@ Analyze the user's description to determine:
 - Cardinality: 1:1 (one-to-one), 1:N (one-to-many), N:M (many-to-many)
 - Junction/associative entities for many-to-many relationships (dashed rectangles)
 
+> ⚠️ **CRITICAL — Do NOT draw an arrow for a ubiquitous/tenant FK (avoids hairball):**
+> If one column (e.g. `workspace_id`, `tenant_id`, `org_id`, `account_id`) appears as a FK on
+> almost every table, drawing one arrow per table turns a hub entity into a spaghetti center —
+> arrows fan out across the whole canvas and cross every other box. Instead:
+> 1. **Omit** those ubiquitous-FK arrows entirely.
+> 2. State the scoping once in the legend, e.g. *"All P tables carry `workspace_id` FK (tenant
+>    scope) + RLS — omitted from arrows for clarity."*
+> 3. Convey the grouping with **color + spatial clustering** (put all tenant-scoped tables in
+>    columns near the hub), not with arrows.
+> 4. Draw arrows ONLY for the **distinguishing** relationships: ownership (`owner_id`),
+>    membership, parent→child within a subtree (`project_id → metrics`), and any 1:1 link.
+> A clean ER diagram for a multi-tenant schema typically has **5–10 arrows**, not one per FK.
+
+> ⚠️ **CRITICAL — Cardinality labels must be consistent and on every relationship arrow:**
+> Pick ONE notation and use it for ALL arrows (don't mix `1:N` and `1..n`). Recommended:
+> `1..1` (exactly one) and `1..n` (one-to-many); for N:M introduce a junction entity and label
+> the two arrows `1..n` each. Place the label at the arrow's midpoint, just beside the line.
+> Never leave a relationship arrow unlabeled, and never label a non-relationship (decorative) line.
+
+> ⚠️ **CRITICAL — Entity header label must be centered (table-style boxes):**
+> An ER entity box has a colored **header band** (entity name, centered) above a body of
+> left-aligned fields. Build it as: (a) a colored outer rect, (b) a body-colored overlay rect
+> covering everything below the header, (c) a divider line at the header's bottom edge, (d) a
+> **separate centered text** for the title (`textAlign:"center"`, no `containerId`, positioned
+> inside the header band), and (e) a **separate left-aligned text** for the fields. Do NOT bind
+> the title with `containerId` if you also need left-aligned fields in the same box — use two
+> free-floating text elements instead.
+
+> ⚠️ **PREFER few long arrows over many — and never bus-route 3+ arrows through the same lane:**
+> The top/bottom "bus" corridor is for at most ONE or two long-span arrows. Stacking three+
+> arrows into the same horizontal bus lane (e.g. hub→three far entities) produces the exact
+> tangle this skill is meant to prevent. If a hub needs to reach many far entities, that is the
+> signal to apply the ubiquitous-FK rule above and omit those arrows.
+
 ### Step 4: Generate the Excalidraw JSON
 
 Create the `.excalidraw` file with appropriate elements:
@@ -161,6 +195,17 @@ Create the `.excalidraw` file with appropriate elements:
 > }
 > ```
 
+> ⚠️ **BEST PRACTICE — Footer/legend sections use distinct colored boxes, not a single gray text blob:**
+> A single free-floating text element for footer notes renders as an undifferentiated gray wall
+> that is hard to scan. Instead, split each logical section into its own colored `rectangle` +
+> bound `text` pair. Recommended per-section colors:
+> - **Track / category items** → one distinct color each (e.g. green `#b2f2bb`, yellow `#ffec99`, blue `#a5d8ff`)
+> - **Warning / important note** → pink `#ffc9c9` with red stroke `#c92a2a`
+> - **Status / header row** → light gray `#dee2e6` with dark stroke `#495057`
+>
+> Lay sections out in a row (side-by-side) for categories, and use a full-width box for the
+> warning note below. This makes the diagram self-explanatory at a glance.
+
 > ⚠️ **CRITICAL — Arrow `points` array:**
 > The **first point must always be `[0, 0]`** (relative to the arrow's `x`,`y` origin).
 > All subsequent points are relative to the first. Never start with a non-zero first point.
@@ -188,6 +233,63 @@ Create the `.excalidraw` file with appropriate elements:
 >
 > Never hardcode a width like `180` and then put a longer label in it — the text spills
 > outside the box. Always derive width/height from the longest line and line count.
+>
+> This applies to **free-floating labels and titles too** (not just boxes). A standalone
+> text element whose `width` is too small renders **clipped/truncated** (e.g. a title
+> "Data Model Diagram" shows only "Data Model"). Set `width ≈ len(text) × fs × 0.62 + 8`
+> for these, and keep `autoResize: true`. Under-estimating (e.g. `len × 6`) clips wide
+> fonts; over-estimate slightly rather than under.
+
+> ⚠️ **CRITICAL — Bound text element `height` must equal `lineCount × fontSize × 1.25` (never hardcode 38 for multi-line text):**
+> When a text element is bound to a container (`containerId` set), its own `height` field
+> in the JSON **must** reflect the actual rendered line count. Common values:
+> - **`fontSize: 15`** — 1 line → `19` | 2 lines → `38` | 3 lines → `57` | 4 lines → `75`
+> - **`fontSize: 13`** — 1 line → `17` | 2 lines → `33` | 3 lines → `49` | 4 lines → `65`
+>
+> The container must also be tall enough: `containerHeight = textHeight + 32px` (16px padding
+> each side). For `verticalAlign: "middle"`, center the text: `textY = containerY + (containerH − textH) / 2`.
+>
+> ```json
+> // 3-line text at fontSize:15 inside a container
+> { "id": "box1", "type": "rectangle", "y": 100, "height": 89 }  // 57 + 32 = 89
+> { "id": "txt1", "type": "text", "y": 116, "height": 57,         // (89−57)/2 = 16 → y=116
+>   "containerId": "box1", "autoResize": true }
+> ```
+> Mismatched height clips the bottom line(s) even when `autoResize: true` is set, because
+> the saved `height` value is used directly by the renderer on first load.
+
+> ⚠️ **CRITICAL — Edge labels (arrow labels) must not overlap each other or adjacent boxes:**
+> Free-floating text labels that annotate an arrow ("edge labels") are a common source of
+> visual collisions. Follow these rules for every edge label:
+> 1. **Clear of source AND target boxes**: keep the label at least **20 px away** from the
+>    nearest box edge (horizontally AND vertically). A label only 2–3 px below a box looks
+>    like it's inside that box.
+> 2. **Never share a y-row with another label** unless their x-ranges are at least **30 px
+>    apart**. Two labels at the same `y` whose x-ranges overlap will render as a single
+>    unreadable blob (e.g. "semantic cache check" + "answer stream" fusing into garbage text).
+> 3. **Compute bounding boxes before placing**: for a label at `(lx, ly)` with `width w` and
+>    `height h`, the label occupies `[lx, lx+w] × [ly, ly+h]`. Check this rectangle against
+>    every other label and every box in the diagram — if they intersect, shift the label
+>    along the arrow (farther from the nearest end) until the intersection is gone.
+> 4. **Prefer placing labels beside the arrow mid-segment, not at segment endpoints**. For a
+>    horizontal segment, center the label horizontally on that segment and offset it **10–14 px
+>    above** (for top-of-arrow labels) or **4–6 px below** (for below-arrow labels). For a
+>    vertical segment, place the label to the **right** of the arrow with a 10 px gap.
+> 5. **If two edge labels must be near the same location** (e.g., two arrows leaving the same
+>    box), stagger them vertically by at least `fontSize * lineCount * 1.25 + 12` px.
+> 6. **Wrap the label text when it is wider than the gap it sits in.** Before placing a label
+>    on a horizontal segment, measure `gapWidth = targetBox.x − sourceBox.right`. If
+>    `labelWidth > gapWidth − 40` (leaving 20 px margin on each side), split the text at a
+>    word boundary to produce 2 lines. Recompute `width` and `height` after wrapping.
+>    Example: "workspace_id lookup" (143 px) in a 134 px gap → wrap to "workspace_id\nlookup"
+>    (≈92 px wide, 2 lines) before checking placement.
+> 7. **Never place a label whose y-range overlaps the vertical span of a nearby box, even if
+>    its x-range is technically in the gap between boxes.** For any box with
+>    `[boxTop, boxBottom]`, a label placed at y inside `[boxTop, boxBottom]` will look embedded
+>    in that box if its x is anywhere near the box's horizontal extent. Rule: if the label's
+>    y falls within `[anyBox.y − 5, anyBox.y + anyBox.height + 5]`, move it **below** that
+>    box row (`newY = anyBox.y + anyBox.height + 20`) or above it (`newY = anyBox.y − labelHeight − 14`),
+>    whichever is closer to the arrow segment being annotated.
 
 > ⚠️ **CRITICAL — Align to a uniform grid and route arrows through gutters:**
 > Messy diagrams come from misaligned boxes and arrows drawn center-to-center (which cut
@@ -376,6 +478,13 @@ Before delivering the diagram:
 - [ ] Colors follow consistent scheme
 - [ ] File is valid JSON
 - [ ] Element count is reasonable (<20 for clarity)
+- [ ] **Bound text `height` = `lineCount × fontSize × 1.25` (not hardcoded 38 for 3+ line text)**
+- [ ] **Container height ≥ textHeight + 32px (16px vertical padding each side)**
+- [ ] **Multi-section footers/legends use one colored box per section, not a single gray text blob**
+- [ ] **Edge labels are ≥20 px clear of every box edge (not hugging box borders)**
+- [ ] **No two edge labels share the same y-row with overlapping x-ranges**
+- [ ] **No edge label text is wider than its gap — wrapped to 2 lines if needed**
+- [ ] **No edge label y-range overlaps the vertical span of any adjacent box row**
 
 ## Icon Libraries (Optional Enhancement)
 

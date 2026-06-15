@@ -1,7 +1,7 @@
 {
   "type": "excalidraw",
   "version": 2,
-  "source": "https://excalidraw.com",
+  "source": "https://marketplace.visualstudio.com/items?itemName=pomdtr.excalidraw-editor",
   "elements": [
     {
       "id": "external-entity-1",
@@ -61,7 +61,7 @@
       "version": 1,
       "versionNonce": 645326963,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1738195200000,
       "link": null,
       "locked": false,
@@ -100,7 +100,7 @@
       "version": 1,
       "versionNonce": 2002002003,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1706659200000,
       "link": null,
       "locked": false,
@@ -123,8 +123,8 @@
     {
       "id": "flow-label-1",
       "type": "text",
-      "x": 230,
-      "y": 220,
+      "x": 223.25,
+      "y": 213.94921875,
       "width": 80,
       "height": 20,
       "angle": 0,
@@ -140,18 +140,22 @@
       "index": "aB",
       "roundness": null,
       "seed": 1001001003,
-      "version": 1,
-      "versionNonce": 2002002004,
+      "version": 35,
+      "versionNonce": 239713330,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 1706659200000,
+      "boundElements": [],
+      "updated": 1781421717459,
       "link": null,
       "locked": false,
       "text": "input data",
       "fontSize": 14,
       "fontFamily": 1,
       "textAlign": "left",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "input data",
+      "autoResize": true,
+      "lineHeight": 1.4285714285714286
     },
     {
       "id": "process-1",
@@ -190,9 +194,9 @@
       "id": "txt_process-1",
       "type": "text",
       "x": 329.2,
-      "y": 220.0,
+      "y": 220,
       "width": 61.60000000000001,
-      "height": 40.0,
+      "height": 40,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -209,7 +213,7 @@
       "version": 1,
       "versionNonce": 149852623,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1738195200000,
       "link": null,
       "locked": false,
@@ -226,10 +230,10 @@
     {
       "id": "data-flow-2",
       "type": "arrow",
-      "x": 420,
-      "y": 240,
-      "width": 80,
-      "height": 0,
+      "x": 419.4257440525604,
+      "y": 237.84512871064155,
+      "width": 99.6133184474395,
+      "height": 1.3431536172467702,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -245,11 +249,11 @@
         "type": 2
       },
       "seed": 1001001005,
-      "version": 1,
-      "versionNonce": 2002002006,
+      "version": 923,
+      "versionNonce": 1663142322,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 1706659200000,
+      "boundElements": [],
+      "updated": 1781421799207,
       "link": null,
       "locked": false,
       "points": [
@@ -258,12 +262,20 @@
           0
         ],
         [
-          80,
-          0
+          99.6133184474395,
+          1.3431536172467702
         ]
       ],
-      "startBinding": null,
-      "endBinding": null,
+      "startBinding": {
+        "elementId": "flow-label-2",
+        "focus": 2.256360414271441,
+        "gap": 10.899816210641575
+      },
+      "endBinding": {
+        "elementId": "data-store-1",
+        "focus": 0.16186406082882232,
+        "gap": 1
+      },
       "startArrowhead": null,
       "endArrowhead": "arrow",
       "lastCommittedPoint": null
@@ -271,10 +283,10 @@
     {
       "id": "flow-label-2",
       "type": "text",
-      "x": 425,
-      "y": 220,
-      "width": 100,
-      "height": 20,
+      "x": 420.95703125,
+      "y": 210.78125,
+      "width": 87.04167175292969,
+      "height": 16.164062500000014,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -288,24 +300,33 @@
       "index": "aF",
       "roundness": null,
       "seed": 1001001006,
-      "version": 1,
-      "versionNonce": 2002002007,
+      "version": 339,
+      "versionNonce": 1225228910,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 1706659200000,
+      "boundElements": [
+        {
+          "id": "data-flow-2",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1781421784186,
       "link": null,
       "locked": false,
       "text": "processed data",
-      "fontSize": 14,
+      "fontSize": 11.31484375000001,
       "fontFamily": 1,
       "textAlign": "left",
-      "verticalAlign": "top"
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "processed data",
+      "autoResize": true,
+      "lineHeight": 1.4285714285714286
     },
     {
       "id": "data-store-1",
       "type": "rectangle",
-      "x": 500,
-      "y": 200,
+      "x": 520.0390625,
+      "y": 206.8515625,
       "width": 150,
       "height": 80,
       "angle": 0,
@@ -321,26 +342,30 @@
       "index": "aG",
       "roundness": null,
       "seed": 1001001007,
-      "version": 1,
-      "versionNonce": 2002002008,
+      "version": 168,
+      "versionNonce": 27651634,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
           "id": "txt_data-store-1"
+        },
+        {
+          "id": "data-flow-2",
+          "type": "arrow"
         }
       ],
-      "updated": 1706659200000,
+      "updated": 1781421799207,
       "link": null,
       "locked": false
     },
     {
       "id": "txt_data-store-1",
       "type": "text",
-      "x": 531.0,
-      "y": 220.0,
-      "width": 88.0,
-      "height": 40.0,
+      "x": 547.9750823974609,
+      "y": 226.8515625,
+      "width": 94.12796020507812,
+      "height": 40,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -354,11 +379,11 @@
       "index": "aH",
       "roundness": null,
       "seed": 141750061,
-      "version": 1,
-      "versionNonce": 141750062,
+      "version": 168,
+      "versionNonce": 317544434,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 1738195200000,
+      "boundElements": [],
+      "updated": 1781421799207,
       "link": null,
       "locked": false,
       "text": "Data Store\n(Database)",
@@ -374,8 +399,8 @@
     {
       "id": "data-store-line",
       "type": "line",
-      "x": 500,
-      "y": 225,
+      "x": 520.78515625,
+      "y": 223.046875,
       "width": 150,
       "height": 0,
       "angle": 0,
@@ -391,11 +416,11 @@
       "index": "aI",
       "roundness": null,
       "seed": 1001001008,
-      "version": 1,
-      "versionNonce": 2002002009,
+      "version": 77,
+      "versionNonce": 788385966,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 1706659200000,
+      "boundElements": [],
+      "updated": 1781421805342,
       "link": null,
       "locked": false,
       "points": [
@@ -409,12 +434,17 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null,
+      "startArrowhead": null,
+      "endArrowhead": null
     }
   ],
   "appState": {
-    "viewBackgroundColor": "#ffffff",
-    "gridSize": 20
+    "gridSize": 20,
+    "gridStep": 5,
+    "gridModeEnabled": false,
+    "viewBackgroundColor": "#ffffff"
   },
   "files": {}
 }
