@@ -32,20 +32,80 @@
     }
   </script>
   <style>
-    body { background: #0F172A; }
+    body {
+      background: #080D1A;
+      background:
+        radial-gradient(ellipse 80% 60% at 82% 105%, rgba(180,75,5,0.30) 0%, transparent 55%),
+        radial-gradient(ellipse 55% 40% at 15% -5%,  rgba(34,197,94,0.09) 0%, transparent 50%),
+        linear-gradient(155deg, #0C1628 0%, #080D1A 100%);
+      min-height: 100vh;
+    }
+    .text-gradient {
+      background: linear-gradient(90deg, #22C55E 0%, #38BDF8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .btn-gradient {
+      background: linear-gradient(90deg, #22C55E 0%, #16A7D8 100%);
+      color: #04210F;
+      transition: filter 0.15s, box-shadow 0.15s;
+      box-shadow: 0 0 12px rgba(34,197,94,0.25);
+    }
+    .btn-gradient:hover { filter: brightness(1.12); box-shadow: 0 0 18px rgba(34,197,94,0.40); }
+    .sidebar-texture {
+      position: relative;
+    }
+    .sidebar-texture::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cdefs%3E%3Cpattern id='g' width='8' height='8' patternUnits='userSpaceOnUse'%3E%3Cpath d='M8 0L0 0 0 8' fill='none' stroke='white' stroke-width='0.5' stroke-opacity='0.04'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='300' height='300' fill='url(%23g)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 300px 300px;
+      z-index: 0;
+    }
+    .sidebar-texture > * { position: relative; z-index: 1; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
     .caret::after { content:"▍"; color:#22C55E; animation: blink 1s step-end infinite; margin-left:2px; }
     .score-bar { height:6px; border-radius:9999px; background:#0F172A; overflow:hidden; }
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position:  200% 0; }
+    }
+    .shimmer {
+      background: linear-gradient(90deg, #1E293B 25%, #273449 50%, #1E293B 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.6s ease-in-out infinite;
+      border-radius: 6px;
+    }
+    [x-cloak] { display: none !important; }
   </style>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body class="font-sans text-ink antialiased">
-  <div class="flex h-screen overflow-hidden">
+  <div x-data="{ chatState: 'normal' }" class="min-h-screen flex flex-col">
+    <!-- Preview toggle bar (design tool, not part of app) -->
+    <div class="flex items-center gap-2 px-4 py-2 bg-black/80 border-b border-line text-xs font-mono text-muted sticky top-0 z-50">
+      <span class="text-muted mr-2">Design state:</span>
+      <button @click="chatState = 'normal'"     :class="chatState === 'normal'     ? 'text-primary' : 'text-muted hover:text-ink'">normal</button>
+      <span class="text-line">|</span>
+      <button @click="chatState = 'streaming'"  :class="chatState === 'streaming'  ? 'text-primary' : 'text-muted hover:text-ink'">streaming</button>
+      <span class="text-line">|</span>
+      <button @click="chatState = 'injection'"  :class="chatState === 'injection'  ? 'text-primary' : 'text-muted hover:text-ink'">injection blocked</button>
+      <span class="text-line">|</span>
+      <button @click="chatState = 'empty'"      :class="chatState === 'empty'      ? 'text-primary' : 'text-muted hover:text-ink'">empty results</button>
+      <span class="text-line">|</span>
+      <button @click="chatState = 'exhausted'"  :class="chatState === 'exhausted'  ? 'text-primary' : 'text-muted hover:text-ink'">credits exhausted</button>
+    </div>
+    <div class="flex flex-1 overflow-hidden">
 
     <!-- Sidebar -->
-    <aside class="hidden md:flex w-60 shrink-0 flex-col border-r border-line bg-surface">
+    <aside class="hidden md:flex w-60 shrink-0 flex-col border-r border-line bg-surface sidebar-texture">
       <div class="flex items-center gap-2 px-5 h-16 border-b border-line">
         <span class="grid place-items-center h-8 w-8 rounded-lg bg-primary text-[#04210F] font-mono font-bold">A</span>
-        <span class="font-mono font-semibold tracking-tight">AISAT<span class="text-primary">·</span>STUDIO</span>
+        <span class="font-mono font-semibold tracking-tight text-gradient">AISAT<span style="-webkit-text-fill-color:#22C55E">·</span>STUDIO</span>
       </div>
       <!-- Workspace switcher -->
       <button class="mx-3 mt-3 flex items-center justify-between rounded-lg border border-line bg-canvas px-3 py-2 text-sm hover:border-slate-500 transition">
@@ -87,18 +147,18 @@
         <!-- Credit meters -->
         <div class="hidden sm:flex items-center gap-3">
           <!-- Workspace pool -->
-          <div class="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5" title="Shared workspace balance remaining — all members draw from this pool">
+          <div class="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5" title="Shared workspace balance — all members draw from this pool">
             <svg class="h-3.5 w-3.5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             <span class="font-mono text-sm">12,480</span>
-            <span class="text-xs text-muted">ws remaining</span>
-            <span class="h-1.5 w-12 rounded-full bg-canvas overflow-hidden"><span class="block h-full bg-primary" style="width:18%"></span></span>
+            <span class="text-xs text-muted">ws left</span>
+            <span class="h-1.5 w-12 rounded-full bg-canvas overflow-hidden" title="82% used"><span class="block h-full bg-warning" style="width:82%"></span></span>
           </div>
           <!-- User daily allowance -->
-          <div class="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5" title="Your personal daily allowance remaining — resets at midnight UTC">
+          <div class="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5" title="Your personal daily allowance — resets at midnight UTC">
             <svg class="h-3.5 w-3.5 text-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>
-            <span class="font-mono text-sm">590</span>
-            <span class="text-xs text-muted">your daily remaining</span>
-            <span class="h-1.5 w-12 rounded-full bg-canvas overflow-hidden"><span class="block h-full bg-info" style="width:59%"></span></span>
+            <span class="font-mono text-sm">410</span>
+            <span class="text-xs text-muted">daily left</span>
+            <span class="h-1.5 w-12 rounded-full bg-canvas overflow-hidden" title="59% used"><span class="block h-full bg-primary" style="width:59%"></span></span>
           </div>
         </div>
         <button class="grid h-9 w-9 place-items-center rounded-full bg-surface2 font-mono text-sm">TP</button>
@@ -110,6 +170,7 @@
         <main class="flex flex-1 flex-col min-w-0">
           <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
 
+            <div x-show="chatState === 'normal'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-6">
             <!-- User message -->
             <div class="flex justify-end">
               <div class="max-w-[75%] rounded-2xl rounded-br-sm bg-surface border border-line px-4 py-3 text-sm">
@@ -157,20 +218,150 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Suggested follow-ups (FR-031) -->
+              <div class="pt-2 space-y-2">
+                <p class="text-[11px] uppercase tracking-wider text-muted flex items-center gap-1.5">
+                  <svg class="h-3.5 w-3.5 text-primary/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                  Suggested follow-ups
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <button onclick="document.querySelector('textarea').value='Which enterprise accounts drove the most expansion ARR in Q3?'; document.querySelector('textarea').focus();"
+                    class="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs text-ink hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
+                    <svg class="h-3 w-3 shrink-0 text-primary/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                    Which enterprise accounts drove the most expansion ARR in Q3?
+                  </button>
+                  <button onclick="document.querySelector('textarea').value='How did the usage-based pricing tier affect churn by segment?'; document.querySelector('textarea').focus();"
+                    class="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs text-ink hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
+                    <svg class="h-3 w-3 shrink-0 text-primary/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                    How did the usage-based pricing tier affect churn by segment?
+                  </button>
+                  <button onclick="document.querySelector('textarea').value='What were the key milestones in the onboarding revamp project?'; document.querySelector('textarea').focus();"
+                    class="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs text-ink hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors cursor-pointer">
+                    <svg class="h-3 w-3 shrink-0 text-primary/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                    What were the key milestones in the onboarding revamp project?
+                  </button>
+                </div>
+              </div>
             </div>
+            </div><!-- /normal state -->
+
+            <!-- STATE: streaming step indicator -->
+            <div class="max-w-[80%] space-y-3" x-show="chatState === 'streaming'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0">
+              <div class="flex items-center gap-2 text-xs text-muted">
+                <span class="grid h-6 w-6 place-items-center rounded-md bg-primary/15 text-primary font-mono">AI</span>
+                <span class="font-mono">smart · gpt-class</span>
+                <span class="rounded-full bg-surface2 px-2 py-0.5 font-mono text-[11px] text-muted animate-pulse">streaming…</span>
+              </div>
+              <!-- Horizontal step progress bar -->
+              <div class="flex items-center gap-0 rounded-lg border border-line bg-surface px-4 py-2.5">
+                <!-- Step 1: moderating (completed) -->
+                <div class="flex items-center gap-1.5">
+                  <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20 border border-primary">
+                    <svg class="h-3 w-3 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </span>
+                  <span class="font-mono text-[11px] text-primary">moderating</span>
+                </div>
+                <div class="h-px flex-1 min-w-[12px] bg-primary mx-2"></div>
+                <!-- Step 2: retrieving (completed) -->
+                <div class="flex items-center gap-1.5">
+                  <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20 border border-primary">
+                    <svg class="h-3 w-3 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </span>
+                  <span class="font-mono text-[11px] text-primary">retrieving</span>
+                </div>
+                <div class="h-px flex-1 min-w-[12px] bg-line mx-2"></div>
+                <!-- Step 3: reranking (active) -->
+                <div class="flex items-center gap-1.5">
+                  <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-canvas">
+                    <span class="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+                  </span>
+                  <span class="font-mono text-[11px] font-semibold text-primary">reranking</span>
+                </div>
+                <div class="h-px flex-1 min-w-[12px] bg-line mx-2"></div>
+                <!-- Step 4: generating (pending) -->
+                <div class="flex items-center gap-1.5">
+                  <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line bg-canvas">
+                    <span class="font-mono text-[9px] text-muted">4</span>
+                  </span>
+                  <span class="font-mono text-[11px] text-muted">generating</span>
+                </div>
+              </div>
+              <!-- Skeleton shimmer lines -->
+              <div class="space-y-2">
+                <div class="shimmer h-4" style="width:82%"></div>
+                <div class="shimmer h-4" style="width:68%"></div>
+                <div class="shimmer h-4" style="width:51%"></div>
+              </div>
+            </div>
+
+            <!-- STATE: injection blocked -->
+            <div class="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3" style="border-left: 3px solid #FBBF24;" x-show="chatState === 'injection'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0">
+              <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-warning/15 text-warning">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                  <span class="text-sm font-semibold text-warning">Input blocked before processing</span>
+                  <span class="rounded-full bg-warning/15 px-2 py-0.5 font-mono text-[11px] text-warning">injection_attempt</span>
+                </div>
+                <p class="text-sm text-muted">Your query was flagged and stopped before retrieval or credit spend. No credits were deducted.</p>
+              </div>
+            </div>
+
+            <!-- STATE: empty results -->
+            <div class="max-w-[80%] space-y-3" x-show="chatState === 'empty'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0">
+              <div class="flex items-center gap-2 text-xs text-muted">
+                <span class="grid h-6 w-6 place-items-center rounded-md bg-primary/15 text-primary font-mono">AI</span>
+                <span class="font-mono">smart · gpt-class</span>
+                <span class="rounded-full bg-surface2 px-2 py-0.5 font-mono text-[11px] text-muted">0 chunks retrieved</span>
+              </div>
+              <div class="flex items-start gap-3 rounded-lg border border-info/25 bg-info/8 px-4 py-3" style="background:rgba(56,189,248,0.07);">
+                <svg class="mt-0.5 h-5 w-5 shrink-0 text-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <p class="text-sm text-ink leading-relaxed">I searched your workspace but found no documents relevant to your query within your clearance scope (L1–L3). No credits were deducted for retrieval.</p>
+              </div>
+              <!-- Sources strip: 0 matched -->
+              <div class="space-y-1 pt-1">
+                <p class="text-[11px] uppercase tracking-wider text-muted">Sources</p>
+                <p class="font-mono text-xs text-muted">0 sources matched</p>
+              </div>
+            </div>
+
           </div>
 
           <!-- Composer -->
-          <div class="border-t border-line bg-canvas px-6 py-4">
+          <div class="border-t border-line bg-canvas px-6 py-4" x-show="chatState !== 'exhausted'">
             <div class="mx-auto max-w-3xl">
               <div class="flex items-end gap-2 rounded-2xl border border-line bg-surface p-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition">
                 <textarea rows="1" class="flex-1 resize-none bg-transparent px-3 py-2 text-sm text-ink placeholder:text-slate-500 focus:outline-none" placeholder="Ask anything about your workspace knowledge…"></textarea>
-                <button class="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-[#04210F] hover:bg-green-600 transition cursor-pointer">
+                <button class="flex items-center gap-1.5 rounded-xl btn-gradient px-4 py-2 text-sm font-semibold transition cursor-pointer">
                   Send
                   <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
                 </button>
               </div>
               <p class="mt-2 px-2 text-xs text-muted">Scoped to <span class="text-ink">your documents + L1–L3 workspace knowledge</span> · est. <span class="font-mono text-ink">~42</span> credits / query</p>
+            </div>
+          </div>
+
+          <!-- STATE: credits exhausted (composer) -->
+          <div class="border-t-2 border-dashed border-line bg-canvas px-6 py-4" x-show="chatState === 'exhausted'" x-cloak>
+            <div class="mx-auto max-w-3xl">
+              <p class="mb-3 font-mono text-[11px] uppercase tracking-wider text-muted">State: Credits exhausted</p>
+              <!-- Warning banner -->
+              <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-sm text-warning">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span>Workspace credits exhausted. Queries are paused until credits are topped up.</span>
+                <a href="credits.html" class="ml-auto shrink-0 btn-gradient rounded-lg px-4 py-1.5 text-xs font-semibold">Add Credits</a>
+              </div>
+              <!-- Disabled composer -->
+              <div class="flex items-end gap-2 rounded-2xl border border-line bg-surface/50 p-2 opacity-60 cursor-not-allowed">
+                <textarea disabled rows="1" class="flex-1 resize-none bg-transparent px-3 py-2 text-sm text-muted placeholder:text-slate-600 cursor-not-allowed focus:outline-none" placeholder="Credits exhausted — queries paused"></textarea>
+                <button disabled class="flex cursor-not-allowed items-center gap-1.5 rounded-xl border border-line bg-surface2 px-4 py-2 text-sm font-semibold text-muted">
+                  Send
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
+                </button>
+              </div>
+              <p class="mt-2 px-2 text-xs text-muted">Credits exhausted · <a href="credits.html" class="text-warning hover:underline">Top up to resume queries</a></p>
             </div>
           </div>
         </main>
@@ -238,6 +429,7 @@
           </div>
         </aside>
       </div>
+    </div>
     </div>
   </div>
 </body>

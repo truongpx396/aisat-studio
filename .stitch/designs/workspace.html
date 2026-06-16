@@ -15,16 +15,54 @@
       } }
     }
   </script>
-  <style>body{background:#0F172A}</style>
+  <style>
+    body {
+      background: #080D1A;
+      background:
+        radial-gradient(ellipse 80% 60% at 82% 105%, rgba(180,75,5,0.30) 0%, transparent 55%),
+        radial-gradient(ellipse 55% 40% at 15% -5%,  rgba(34,197,94,0.09) 0%, transparent 50%),
+        linear-gradient(155deg, #0C1628 0%, #080D1A 100%);
+      min-height: 100vh;
+    }
+    .text-gradient {
+      background: linear-gradient(90deg, #22C55E 0%, #38BDF8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .btn-gradient {
+      background: linear-gradient(90deg, #22C55E 0%, #16A7D8 100%);
+      color: #04210F;
+      transition: filter 0.15s, box-shadow 0.15s;
+      box-shadow: 0 0 12px rgba(34,197,94,0.25);
+    }
+    .btn-gradient:hover { filter: brightness(1.12); box-shadow: 0 0 18px rgba(34,197,94,0.40); }
+    .sidebar-texture {
+      position: relative;
+    }
+    .sidebar-texture::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cdefs%3E%3Cpattern id='g' width='8' height='8' patternUnits='userSpaceOnUse'%3E%3Cpath d='M8 0L0 0 0 8' fill='none' stroke='white' stroke-width='0.5' stroke-opacity='0.04'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='300' height='300' fill='url(%23g)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 300px 300px;
+      z-index: 0;
+    }
+    .sidebar-texture > * { position: relative; z-index: 1; }
+    [x-cloak] { display: none !important; }
+  </style>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body class="font-sans text-ink antialiased">
-  <div class="flex h-screen overflow-hidden">
+  <div class="flex h-screen overflow-hidden" x-data="{ role: 'admin', showInviteModal: false }">
 
     <!-- Sidebar -->
-    <aside class="hidden md:flex w-60 shrink-0 flex-col border-r border-line bg-surface">
+    <aside class="hidden md:flex w-60 shrink-0 flex-col border-r border-line bg-surface sidebar-texture">
       <div class="flex items-center gap-2 px-5 h-16 border-b border-line">
         <span class="grid place-items-center h-8 w-8 rounded-lg bg-primary text-[#04210F] font-mono font-bold">A</span>
-        <span class="font-mono font-semibold tracking-tight">AISAT<span class="text-primary">·</span>STUDIO</span>
+        <span class="font-mono font-semibold tracking-tight text-gradient">AISAT<span style="-webkit-text-fill-color:#22C55E">·</span>STUDIO</span>
       </div>
       <button class="mx-3 mt-3 flex items-center justify-between rounded-lg border border-line bg-canvas px-3 py-2 text-sm hover:border-slate-500 transition">
         <span class="flex items-center gap-2"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
@@ -49,13 +87,36 @@
 
     <!-- Main -->
     <div class="flex flex-1 flex-col min-w-0">
-      <header class="flex h-16 shrink-0 items-center gap-4 border-b border-line bg-canvas/80 px-5 backdrop-blur">
-        <h1 class="text-lg font-semibold">Workspace</h1>
+      <!-- Design preview role toggle -->
+      <div class="flex gap-2 px-4 py-2 bg-surface border-b border-line text-xs text-muted font-mono">
+        <span>Design preview · role:</span>
+        <button @click="role = 'admin'" :class="role === 'admin' ? 'text-primary' : 'text-muted'">admin</button>
+        <span>/</span>
+        <button @click="role = 'member'" :class="role === 'member' ? 'text-primary' : 'text-muted'">member</button>
+      </div>
+      <!-- ADMIN VIEW: invite button visible -->
+      <header class="flex h-16 shrink-0 items-center gap-4 border-b border-line bg-canvas/80 px-5 backdrop-blur" x-show="role === 'admin'">
+        <h1 class="text-lg font-semibold text-gradient">Workspace</h1>
         <span class="rounded-md border border-line bg-surface px-2 py-1 font-mono text-xs text-muted">Acme · Research</span>
-        <button class="ml-auto flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-[#04210F] hover:bg-green-600 transition cursor-pointer">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Invite member
-        </button>
+        <div class="ml-auto flex flex-col items-end gap-0.5">
+          <button class="flex items-center gap-2 rounded-lg btn-gradient px-3 py-1.5 text-sm font-semibold transition cursor-pointer" @click="showInviteModal = true">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Invite member
+          </button>
+          <span class="text-[10px] text-muted leading-none">Visible to owners &amp; admins only</span>
+        </div>
       </header>
+      <!-- MEMBER VIEW: invite button hidden/disabled -->
+      <div class="flex h-12 shrink-0 items-center gap-4 border-b border-dashed border-warning/30 bg-warning/5 px-5" x-show="role === 'member'">
+        <span class="rounded bg-warning/20 px-1.5 py-0.5 font-mono text-[10px] text-warning uppercase tracking-wider shrink-0">Design variant · Member role</span>
+        <h1 class="text-base font-semibold text-gradient opacity-60">Workspace</h1>
+        <span class="rounded-md border border-line bg-surface px-2 py-1 font-mono text-xs text-muted opacity-60">Acme · Research</span>
+        <div class="ml-auto flex flex-col items-end gap-0.5">
+          <button disabled class="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm text-muted cursor-not-allowed opacity-50" title="Only workspace admins can invite members">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Invite member
+          </button>
+          <span class="text-[10px] text-muted leading-none">Only workspace admins can invite members</span>
+        </div>
+      </div>
 
       <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
 
@@ -180,5 +241,86 @@
       </div>
     </div>
   </div>
+
+  <!-- MODAL: invite member -->
+  <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" x-show="showInviteModal" x-cloak @click.self="showInviteModal = false" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+    <div class="w-full max-w-md mx-4 bg-surface border border-line rounded-2xl p-6 space-y-5" style="box-shadow:0 25px 50px rgba(0,0,0,0.5)">
+
+      <!-- Modal header -->
+      <div class="flex items-center justify-between">
+        <h2 class="font-semibold text-ink">Invite member</h2>
+        <button class="grid h-7 w-7 place-items-center rounded-md border border-line text-muted hover:text-ink hover:border-slate-400 transition" @click="showInviteModal = false">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Email address -->
+      <div class="space-y-1.5">
+        <label class="block text-xs font-medium text-muted uppercase tracking-wider">Email address</label>
+        <input type="email" class="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-slate-500" placeholder="colleague@company.com"/>
+      </div>
+
+      <!-- Role -->
+      <div class="space-y-2">
+        <label class="block text-xs font-medium text-muted uppercase tracking-wider">Role</label>
+        <div class="space-y-1.5">
+          <label class="flex items-start gap-3 rounded-lg border border-line bg-canvas px-3 py-2.5 cursor-pointer hover:border-slate-400 transition">
+            <input type="radio" name="invite-role" class="mt-0.5 accent-green-500" />
+            <div>
+              <p class="text-sm font-medium text-ink">Owner</p>
+              <p class="text-[11px] text-muted">Full control — can delete workspace and manage billing</p>
+            </div>
+          </label>
+          <label class="flex items-start gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2.5 cursor-pointer">
+            <input type="radio" name="invite-role" class="mt-0.5 accent-green-500" checked />
+            <div>
+              <p class="text-sm font-medium text-ink">Admin</p>
+              <p class="text-[11px] text-muted">Can invite/remove members, manage clearances</p>
+            </div>
+          </label>
+          <label class="flex items-start gap-3 rounded-lg border border-line bg-canvas px-3 py-2.5 cursor-pointer hover:border-slate-400 transition">
+            <input type="radio" name="invite-role" class="mt-0.5 accent-green-500" />
+            <div>
+              <p class="text-sm font-medium text-ink">Member</p>
+              <p class="text-[11px] text-muted">Read and contribute within their clearance level</p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Clearance level -->
+      <div class="space-y-2">
+        <label class="block text-xs font-medium text-muted uppercase tracking-wider">Clearance level</label>
+        <div class="space-y-1.5">
+          <label class="flex items-center gap-3 rounded-lg border border-line bg-canvas px-3 py-2 cursor-pointer hover:border-slate-400 transition">
+            <input type="radio" name="invite-clearance" class="accent-green-500" />
+            <span class="font-mono text-sm text-muted">L1 · Public</span>
+          </label>
+          <label class="flex items-center gap-3 rounded-lg border border-line bg-canvas px-3 py-2 cursor-pointer hover:border-slate-400 transition">
+            <input type="radio" name="invite-clearance" class="accent-green-500" />
+            <span class="font-mono text-sm text-muted">L2 · Restricted</span>
+          </label>
+          <label class="flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 cursor-pointer">
+            <input type="radio" name="invite-clearance" class="accent-green-500" checked />
+            <span class="font-mono text-sm text-primary">L3 · Internal</span>
+          </label>
+        </div>
+        <p class="text-[11px] text-muted">Limited to your clearance level (L3)</p>
+      </div>
+
+      <!-- Info note -->
+      <div class="rounded-lg border border-info/25 bg-info/10 px-3 py-2.5 text-[11px] text-muted leading-relaxed">
+        An invite link will be sent to the email address. Clearance options are capped at your own level <span class="font-mono text-info">L3 · Internal</span>.
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex justify-end gap-2 pt-1">
+        <button class="border border-line text-muted rounded-lg px-4 py-2 text-sm hover:border-slate-400 hover:text-ink transition" @click="showInviteModal = false">Cancel</button>
+        <button class="btn-gradient rounded-lg px-4 py-2 text-sm font-semibold">Send invite</button>
+      </div>
+
+    </div>
+  </div>
+
 </body>
 </html>

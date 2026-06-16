@@ -58,6 +58,8 @@ A member asks a natural-language question in a conversational interface. The AI 
 1. **Given** ingested documents the member is authorized to see, **When** they ask a related question, **Then** the assistant returns a relevant answer with citations to the contributing source documents.
 2. **Given** documents above the member's clearance or owned by other members, **When** they ask a question, **Then** those documents are never retrieved, cited, or reflected in the answer.
 3. **Given** a multi-turn conversation, **When** the member asks a follow-up that depends on prior context, **Then** the assistant uses remembered session context to answer coherently.
+4. **Given** an answer with retrieved sources, **When** the answer finishes streaming, **Then** 2–3 suggested follow-up question chips appear below the sources strip; clicking one populates the composer and immediately submits the question (FR-031).
+5. **Given** a refused or zero-source answer, **When** rendered, **Then** no follow-up chips are shown (FR-031).
 4. **Given** a structured-data question (e.g., about employees, projects, or metrics), **When** asked, **Then** the assistant answers from the structured data source scoped to the workspace.
 5. **Given** input that is disallowed or an obvious prompt-injection attempt, **When** submitted, **Then** the system refuses before performing retrieval or consuming credits, and records the event.
 6. **Given** a document containing embedded instructions ("ignore previous instructions…"), **When** that document is retrieved as context, **Then** the assistant treats it as reference material and does not follow instructions found inside it.
@@ -215,6 +217,7 @@ A member optionally connects a local agent to the workspace to run complex, mult
 
 - **FR-029**: System MUST fail over to a fallback AI provider on timeout, server error, or rate-limit (capped at one hop), but never on low-quality output, and MUST make provider fallbacks observable.
 - **FR-030**: System MUST ship a minimal evaluation seed set (prompt examples and a golden retrieval set) used as a regression tripwire, including a hard assertion that a query never returns a document above the requester's clearance.
+- **FR-031**: After delivering an answer, the system MUST generate 2–3 suggested follow-up questions derived from the answer context and the retrieved sources. Suggestions MUST be scoped to the member's clearance (never hint at inaccessible content), rendered as clickable chips below the answer, and clicking a chip MUST populate and submit the composer with that question. Suggestions MUST NOT be generated when the answer was refused (injection-blocked) or when zero sources were retrieved.
 
 ### Key Entities *(include if feature involves data)*
 

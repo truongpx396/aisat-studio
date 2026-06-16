@@ -55,6 +55,21 @@ async def embed(texts: list[str], workspace_id: str) -> list[list[float]]: ...
 - **PII scrub before write**: prompts/responses are PII-scrubbed before any Langfuse/eval write; raw bodies retained 30 days then purged (FR-024, Clarification Q5).
 - **Logging**: `llm_call_log` gets metadata/token/cost only — never raw message bodies (FR-024).
 
+## External agent integration note
+
+`/llm/proxy` (Go BFF) is the external entrypoint for this gateway. It is OpenAI-wire-compatible so external agents (Cursor, Claude Code, Cline, etc.) can point their `LLM_BASE_URL` at it without code changes.
+
+Both `proxy` and `byok` modes must configure the MCP server to access the knowledge base. The difference is only on the LLM side:
+
+| Mode | LLM calls | MCP tool calls | Moderation | Metering |
+|------|-----------|----------------|------------|----------|
+| **proxy** (default) | `POST /llm/proxy` → this gateway | MCP server `:8002` (server-side, always) | ✅ Node 0 | ✅ credits |
+| **byok** | direct to provider (bypasses gateway) | MCP server `:8002` (server-side, always) | ❌ skipped | ❌ |
+
+**Key invariant**: MCP tool calls are always routed server-side regardless of LLM mode (`research.md §5`). A BYOK agent still gets `allowed_tools` enforcement, RLS-scoped knowledge access, and audit logging — it only loses LLM-level moderation and credit metering. Admins can disable BYOK per workspace.
+
+Configuring only `/llm/proxy` without the MCP server gives governance and metering but **no RAG or knowledge-base access**. To get the same capability as the built-in LangGraph chat, an external agent must configure both.
+
 ## Contract test obligations
 
 - A repeated `chat` with identical inputs (same derived `idem_key`) calls the provider once and deducts credits once (SC-006).

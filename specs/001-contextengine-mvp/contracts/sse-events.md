@@ -13,13 +13,15 @@ type SSEEventType =
   | { event: "status";      data: { stage: string } }
   | { event: "error";       data: { code: string; message: string } }
   | { event: "done";        data: { usage: { input: number; output: number }; credits_deducted: number } }
+  | { event: "suggestions"; data: { questions: string[] } }  // FR-031: 2–3 follow-up chips, only when source_count > 0 and answer was not refused
 ```
 
 ## Streams
 
 ### Query stream — `GET /query/{streamId}` (US2)
-- Ordered emission: `status` (stages: `moderating`, `rewriting`, `retrieving`, `reranking`, `generating`) → interleaved `thinking` / `tool_use` / `tool_result` → `token` deltas → `done`.
-- On moderation block: a single `error` with code `injection_blocked` or `disallowed`, no `token`/`done`, no credit spend (FR-010, SC-007).
+- Ordered emission: `status` (stages: `moderating`, `rewriting`, `retrieving`, `reranking`, `generating`) → interleaved `thinking` / `tool_use` / `tool_result` → `token` deltas → `done` → `suggestions` (when applicable, FR-031).
+- `suggestions` is emitted after `done` only when `source_count > 0` and the answer was not refused; contains 2–3 clearance-scoped follow-up question strings. Omitted entirely on moderation block or zero-source answer.
+- On moderation block: a single `error` with code `injection_blocked` or `disallowed`, no `token`/`done`/`suggestions`, no credit spend (FR-010, SC-007).
 - `done.credits_deducted` reflects the exact charge (must reconcile to the ledger, SC-006).
 
 ### Ingestion stream — `GET /ingest/{jobId}/status` (US1)

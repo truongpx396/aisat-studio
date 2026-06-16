@@ -6,6 +6,7 @@
   <title>AISAT-STUDIO — Admin</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script id="tailwind-config">
     tailwind.config = {
       darkMode: "class",
@@ -15,16 +16,52 @@
       } }
     }
   </script>
-  <style>body{background:#0F172A}</style>
+  <style>
+    body {
+      background: #080D1A;
+      background:
+        radial-gradient(ellipse 80% 60% at 82% 105%, rgba(180,75,5,0.30) 0%, transparent 55%),
+        radial-gradient(ellipse 55% 40% at 15% -5%,  rgba(34,197,94,0.09) 0%, transparent 50%),
+        linear-gradient(155deg, #0C1628 0%, #080D1A 100%);
+      min-height: 100vh;
+    }
+    .text-gradient {
+      background: linear-gradient(90deg, #22C55E 0%, #38BDF8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .btn-gradient {
+      background: linear-gradient(90deg, #22C55E 0%, #16A7D8 100%);
+      color: #04210F;
+      transition: filter 0.15s, box-shadow 0.15s;
+      box-shadow: 0 0 12px rgba(34,197,94,0.25);
+    }
+    .btn-gradient:hover { filter: brightness(1.12); box-shadow: 0 0 18px rgba(34,197,94,0.40); }
+    .sidebar-texture {
+      position: relative;
+    }
+    .sidebar-texture::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cdefs%3E%3Cpattern id='g' width='8' height='8' patternUnits='userSpaceOnUse'%3E%3Cpath d='M8 0L0 0 0 8' fill='none' stroke='white' stroke-width='0.5' stroke-opacity='0.04'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='300' height='300' fill='url(%23g)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 300px 300px;
+      z-index: 0;
+    }
+    .sidebar-texture > * { position: relative; z-index: 1; }
+  </style>
 </head>
 <body class="font-sans text-ink antialiased">
   <div class="flex h-screen overflow-hidden">
 
     <!-- Sidebar -->
-    <aside class="hidden md:flex w-60 shrink-0 flex-col border-r border-line bg-surface">
+    <aside class="hidden md:flex w-60 shrink-0 flex-col border-r border-line bg-surface sidebar-texture">
       <div class="flex items-center gap-2 px-5 h-16 border-b border-line">
         <span class="grid place-items-center h-8 w-8 rounded-lg bg-primary text-[#04210F] font-mono font-bold">A</span>
-        <span class="font-mono font-semibold tracking-tight">AISAT<span class="text-primary">·</span>STUDIO</span>
+        <span class="font-mono font-semibold tracking-tight text-gradient">AISAT<span style="-webkit-text-fill-color:#22C55E">·</span>STUDIO</span>
       </div>
       <button class="mx-3 mt-3 flex items-center justify-between rounded-lg border border-line bg-canvas px-3 py-2 text-sm hover:border-slate-500 transition">
         <span class="flex items-center gap-2"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
@@ -48,20 +85,23 @@
     </aside>
 
     <!-- Main -->
-    <div class="flex flex-1 flex-col min-w-0">
+    <div class="flex flex-1 flex-col min-w-0" x-data="{ tab: 'usage' }">
       <header class="flex h-16 shrink-0 items-center gap-4 border-b border-line bg-canvas/80 px-5 backdrop-blur">
-        <h1 class="text-lg font-semibold">Admin</h1>
+        <h1 class="text-lg font-semibold text-gradient">Admin</h1>
         <nav class="ml-4 flex gap-1 text-sm">
-          <button class="rounded-lg bg-surface2 px-3 py-1.5 font-medium">Usage</button>
-          <button class="rounded-lg px-3 py-1.5 text-muted hover:text-ink">Members</button>
-          <button class="rounded-lg px-3 py-1.5 text-muted hover:text-ink">Audit</button>
+          <button @click="tab = 'usage'" :class="tab === 'usage' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Usage</button>
+          <button @click="tab = 'members'" :class="tab === 'members' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Members</button>
+          <button @click="tab = 'audit'" :class="tab === 'audit' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Audit</button>
         </nav>
-        <button class="ml-auto flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-[#04210F] hover:bg-green-600 transition cursor-pointer">
+        <button class="ml-auto flex items-center gap-2 rounded-lg btn-gradient px-3 py-1.5 text-sm font-semibold transition cursor-pointer">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Invite
         </button>
       </header>
 
-      <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+      <div class="flex-1 overflow-y-auto px-6 py-6">
+
+        <!-- TAB PANEL: Usage -->
+        <div x-show="tab === 'usage'" class="space-y-6" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
 
         <!-- KPI cards -->
         <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -96,6 +136,8 @@
                     <th class="px-5 py-2 font-medium">Clearance</th>
                     <th class="px-5 py-2 font-medium text-right">Used (30d)</th>
                     <th class="px-5 py-2 font-medium">Daily limit</th>
+                    <th class="px-5 py-2 font-medium text-right">Queries (30d)</th>
+                    <th class="px-5 py-2 font-medium">Last active</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -104,21 +146,63 @@
                     <td class="px-5 py-3 text-muted">Owner</td>
                     <td class="px-5 py-3"><span class="rounded bg-info/15 px-1.5 py-0.5 font-mono text-[10px] text-info">L5 · Executive</span></td>
                     <td class="px-5 py-3 text-right font-mono">22,480</td>
-                    <td class="px-5 py-3"><span class="font-mono text-xs rounded border border-line bg-canvas px-2 py-1">2,000</span></td>
+                    <td class="px-5 py-3">
+                      <div x-data="{ editing: false }">
+                        <div x-show="!editing" class="inline-edit-group flex items-center gap-1.5">
+                          <span class="font-mono text-xs rounded border border-line bg-canvas px-2 py-1">2,000</span>
+                          <button @click="editing = true" class="text-muted hover:text-ink transition" title="Edit daily limit"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                        </div>
+                        <div x-show="editing" class="inline-edit-group flex items-center gap-1.5">
+                          <input type="number" value="2000" class="bg-canvas border border-line rounded px-2 py-0.5 text-sm w-20 font-mono text-ink" />
+                          <button @click="editing = false" class="text-[11px] rounded px-1.5 py-0.5 bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 transition">Save</button>
+                          <button @click="editing = false" class="text-[11px] text-muted hover:text-ink transition">Cancel</button>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-5 py-3 text-right font-mono">1,240</td>
+                    <td class="px-5 py-3 text-xs text-muted">just now</td>
                   </tr>
                   <tr class="border-b border-line/60">
                     <td class="px-5 py-3"><span class="flex items-center gap-2"><span class="h-6 w-6 grid place-items-center rounded-full bg-surface2 font-mono text-xs">MK</span>Mina K.</span></td>
                     <td class="px-5 py-3 text-muted">Admin</td>
                     <td class="px-5 py-3"><span class="rounded bg-info/15 px-1.5 py-0.5 font-mono text-[10px] text-info">L4 · Confidential</span></td>
                     <td class="px-5 py-3 text-right font-mono">18,420</td>
-                    <td class="px-5 py-3"><span class="font-mono text-xs rounded border border-line bg-canvas px-2 py-1">1,500</span></td>
+                    <td class="px-5 py-3">
+                      <div x-data="{ editing: false }">
+                        <div x-show="!editing" class="inline-edit-group flex items-center gap-1.5">
+                          <span class="font-mono text-xs rounded border border-line bg-canvas px-2 py-1">1,500</span>
+                          <button @click="editing = true" class="text-muted hover:text-ink transition" title="Edit daily limit"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                        </div>
+                        <div x-show="editing" class="inline-edit-group flex items-center gap-1.5">
+                          <input type="number" value="1500" class="bg-canvas border border-line rounded px-2 py-0.5 text-sm w-20 font-mono text-ink" />
+                          <button @click="editing = false" class="text-[11px] rounded px-1.5 py-0.5 bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 transition">Save</button>
+                          <button @click="editing = false" class="text-[11px] text-muted hover:text-ink transition">Cancel</button>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-5 py-3 text-right font-mono">890</td>
+                    <td class="px-5 py-3 text-xs text-muted">15m ago</td>
                   </tr>
                   <tr class="border-b border-line/60">
                     <td class="px-5 py-3"><span class="flex items-center gap-2"><span class="h-6 w-6 grid place-items-center rounded-full bg-surface2 font-mono text-xs">RS</span>Rahul S.</span></td>
                     <td class="px-5 py-3 text-muted">Member</td>
                     <td class="px-5 py-3"><span class="rounded bg-info/15 px-1.5 py-0.5 font-mono text-[10px] text-info">L3 · Internal</span></td>
                     <td class="px-5 py-3 text-right font-mono">16,620</td>
-                    <td class="px-5 py-3"><span class="font-mono text-xs rounded border border-line bg-canvas px-2 py-1">1,000</span></td>
+                    <td class="px-5 py-3">
+                      <div x-data="{ editing: false }">
+                        <div x-show="!editing" class="inline-edit-group flex items-center gap-1.5">
+                          <span class="font-mono text-xs rounded border border-line bg-canvas px-2 py-1">1,000</span>
+                          <button @click="editing = true" class="text-muted hover:text-ink transition" title="Edit daily limit"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                        </div>
+                        <div x-show="editing" class="inline-edit-group flex items-center gap-1.5">
+                          <input type="number" value="1000" class="bg-canvas border border-line rounded px-2 py-0.5 text-sm w-20 font-mono text-ink" />
+                          <button @click="editing = false" class="text-[11px] rounded px-1.5 py-0.5 bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 transition">Save</button>
+                          <button @click="editing = false" class="text-[11px] text-muted hover:text-ink transition">Cancel</button>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-5 py-3 text-right font-mono">234</td>
+                    <td class="px-5 py-3 text-xs text-muted">2h ago</td>
                   </tr>
                   <tr>
                     <td class="px-5 py-3"><span class="flex items-center gap-2"><span class="h-6 w-6 grid place-items-center rounded-full bg-surface2 font-mono text-xs">EL</span>Elena L. <span class="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] text-warning font-sans">pending</span></span></td>
@@ -126,6 +210,8 @@
                     <td class="px-5 py-3"><span class="rounded bg-info/15 px-1.5 py-0.5 font-mono text-[10px] text-info">L2 · Restricted</span></td>
                     <td class="px-5 py-3 text-right font-mono text-muted">—</td>
                     <td class="px-5 py-3"><button class="text-xs text-danger hover:underline">Revoke</button></td>
+                    <td class="px-5 py-3 text-right font-mono text-muted">0</td>
+                    <td class="px-5 py-3 text-xs text-muted">—</td>
                   </tr>
                 </tbody>
               </table>
@@ -183,6 +269,212 @@
             </table>
           </div>
         </section>
+
+        </div><!-- end TAB PANEL: Usage -->
+
+        <!-- TAB PANEL: Members -->
+        <div x-show="tab === 'members'" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+        <section class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-semibold">Members <span class="text-muted font-mono text-sm">(9)</span></h2>
+              <p class="text-xs text-muted mt-0.5">(Admins/owners only)</p>
+            </div>
+            <button class="flex items-center gap-2 rounded-lg btn-gradient px-4 py-2 text-sm font-semibold transition cursor-pointer">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              Invite member
+            </button>
+          </div>
+          <div class="rounded-xl border border-line bg-surface overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="text-left text-[11px] uppercase tracking-wide text-muted">
+                <tr class="border-b border-line">
+                  <th class="px-5 py-2.5 font-medium">Member</th>
+                  <th class="px-5 py-2.5 font-medium">Role</th>
+                  <th class="px-5 py-2.5 font-medium">Clearance</th>
+                  <th class="px-5 py-2.5 font-medium">Status</th>
+                  <th class="px-5 py-2.5 font-medium text-right">Queries (30d)</th>
+                  <th class="px-5 py-2.5 font-medium">Last active</th>
+                  <th class="px-5 py-2.5 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-line/60">
+                  <td class="px-5 py-3"><span class="flex items-center gap-2"><span class="h-7 w-7 grid place-items-center rounded-full bg-primary/20 text-primary font-mono text-xs font-semibold">TP</span><span><span class="text-ink">Truong P.</span> <span class="text-xs text-muted">(you)</span><br/><span class="text-xs text-muted font-mono">truong@aisat.io</span></span></span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] text-primary">owner</span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-danger/15 px-1.5 py-0.5 font-mono text-[10px] text-danger">L5 · Executive</span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] text-primary">active</span></td>
+                  <td class="px-5 py-3 text-right font-mono">1,240</td>
+                  <td class="px-5 py-3 text-xs text-muted">just now</td>
+                  <td class="px-5 py-3 text-xs text-muted">—</td>
+                </tr>
+                <tr class="border-b border-line/60">
+                  <td class="px-5 py-3"><span class="flex items-center gap-2"><span class="h-7 w-7 grid place-items-center rounded-full bg-info/20 text-info font-mono text-xs font-semibold">RS</span><span><span class="text-ink">Rahul S.</span><br/><span class="text-xs text-muted font-mono">rahul@aisat.io</span></span></span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-info/15 px-1.5 py-0.5 font-mono text-[10px] text-info">admin</span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-warning/15 px-1.5 py-0.5 font-mono text-[10px] text-warning">L4 · Confidential</span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] text-primary">active</span></td>
+                  <td class="px-5 py-3 text-right font-mono">890</td>
+                  <td class="px-5 py-3 text-xs text-muted">15m ago</td>
+                  <td class="px-5 py-3">
+                    <div class="flex items-center gap-1.5">
+                      <button class="text-[11px] rounded border border-line bg-canvas hover:border-slate-500 px-2 py-1 transition">Change role</button>
+                      <button class="text-[11px] rounded border border-danger/40 text-danger hover:bg-danger/10 px-2 py-1 transition">Remove</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="border-b border-line/60">
+                  <td class="px-5 py-3"><span class="flex items-center gap-2"><span class="h-7 w-7 grid place-items-center rounded-full bg-surface2 font-mono text-xs font-semibold">ML</span><span><span class="text-ink">Mina L.</span><br/><span class="text-xs text-muted font-mono">mina@aisat.io</span></span></span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-line/60 px-1.5 py-0.5 font-mono text-[10px] text-muted">member</span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-line/50 px-1.5 py-0.5 font-mono text-[10px] text-muted">L3 · Internal</span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] text-primary">active</span></td>
+                  <td class="px-5 py-3 text-right font-mono">234</td>
+                  <td class="px-5 py-3 text-xs text-muted">2h ago</td>
+                  <td class="px-5 py-3">
+                    <div class="flex items-center gap-1.5">
+                      <button class="text-[11px] rounded border border-line bg-canvas hover:border-slate-500 px-2 py-1 transition">Change role</button>
+                      <button class="text-[11px] rounded border border-danger/40 text-danger hover:bg-danger/10 px-2 py-1 transition">Remove</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="border-b border-line/60">
+                  <td class="px-5 py-3"><span class="flex items-center gap-2"><span class="h-7 w-7 grid place-items-center rounded-full bg-surface2 font-mono text-xs font-semibold">CW</span><span><span class="text-ink">Chen W.</span><br/><span class="text-xs text-muted font-mono">chen@aisat.io</span></span></span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-line/60 px-1.5 py-0.5 font-mono text-[10px] text-muted">member</span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-warning/15 px-1.5 py-0.5 font-mono text-[10px] text-warning">L2 · Restricted</span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] text-primary">active</span></td>
+                  <td class="px-5 py-3 text-right font-mono">45</td>
+                  <td class="px-5 py-3 text-xs text-muted">1d ago</td>
+                  <td class="px-5 py-3">
+                    <div class="flex items-center gap-1.5">
+                      <button class="text-[11px] rounded border border-line bg-canvas hover:border-slate-500 px-2 py-1 transition">Change role</button>
+                      <button class="text-[11px] rounded border border-danger/40 text-danger hover:bg-danger/10 px-2 py-1 transition">Remove</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-3"><span class="flex items-center gap-2"><span class="h-7 w-7 grid place-items-center rounded-full bg-surface2 font-mono text-xs font-semibold text-muted">EL</span><span><span class="text-ink">Elena L.</span><br/><span class="text-xs text-muted font-mono">elena@aisat.io</span></span></span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-line/60 px-1.5 py-0.5 font-mono text-[10px] text-muted">member</span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-info/15 px-1.5 py-0.5 font-mono text-[10px] text-info">L1 · Public</span></td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-warning/15 px-1.5 py-0.5 font-mono text-[10px] text-warning">pending</span></td>
+                  <td class="px-5 py-3 text-right font-mono text-muted">0</td>
+                  <td class="px-5 py-3 text-xs text-muted">—</td>
+                  <td class="px-5 py-3">
+                    <button class="text-[11px] rounded border border-danger/40 text-danger hover:bg-danger/10 px-2 py-1 transition">Revoke invite</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        </div><!-- end TAB PANEL: Members -->
+
+        <!-- TAB PANEL: Audit -->
+        <div x-show="tab === 'audit'" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+        <section class="space-y-4">
+          <div class="rounded-xl border border-line bg-surface p-4">
+            <div class="flex flex-wrap items-center gap-3">
+              <select class="bg-canvas border border-line rounded-lg px-3 py-1.5 text-sm text-ink font-sans focus:outline-none focus:border-slate-500">
+                <option>All actors</option>
+                <option>Truong P.</option>
+                <option>Rahul S.</option>
+                <option>Mina L.</option>
+                <option>Chen W.</option>
+                <option>Elena L.</option>
+                <option>System</option>
+              </select>
+              <select class="bg-canvas border border-line rounded-lg px-3 py-1.5 text-sm text-ink font-sans focus:outline-none focus:border-slate-500">
+                <option>All actions</option>
+                <option>query</option>
+                <option>ingest</option>
+                <option>admin</option>
+                <option>system</option>
+              </select>
+              <select class="bg-canvas border border-line rounded-lg px-3 py-1.5 text-sm text-ink font-sans focus:outline-none focus:border-slate-500">
+                <option>Last 7 days</option>
+                <option>Last 24 hours</option>
+                <option>Last 30 days</option>
+                <option>Custom range</option>
+              </select>
+              <button class="rounded-lg border border-line bg-canvas px-3 py-1.5 text-sm font-medium hover:border-slate-500 transition">Apply</button>
+            </div>
+          </div>
+          <div class="rounded-xl border border-line bg-surface overflow-x-auto">
+            <div class="flex items-center justify-between border-b border-line px-5 py-3">
+              <p class="text-sm font-medium">Audit events</p>
+              <span class="text-xs text-muted">PII-scrubbed · raw bodies retained 30 days</span>
+            </div>
+            <table class="w-full text-sm">
+              <thead class="text-left text-[11px] uppercase tracking-wide text-muted">
+                <tr class="border-b border-line">
+                  <th class="px-5 py-2.5 font-medium font-mono">Timestamp</th>
+                  <th class="px-5 py-2.5 font-medium">Actor</th>
+                  <th class="px-5 py-2.5 font-medium">Action / Tool</th>
+                  <th class="px-5 py-2.5 font-medium">Workspace</th>
+                  <th class="px-5 py-2.5 font-medium text-right">Cost (cr)</th>
+                  <th class="px-5 py-2.5 font-medium font-mono">Fingerprint</th>
+                  <th class="px-5 py-2.5 font-medium">Trace</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-line/60">
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">14:23:11</td>
+                  <td class="px-5 py-2.5 text-sm">Truong P. <span class="text-xs text-muted">(Owner)</span></td>
+                  <td class="px-5 py-2.5 font-mono text-xs">search_workspace</td>
+                  <td class="px-5 py-2.5 text-xs text-muted">Acme · Research</td>
+                  <td class="px-5 py-2.5 text-right font-mono text-xs">−42</td>
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">a3f9…</td>
+                  <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
+                </tr>
+                <tr class="border-b border-line/60">
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">14:19:05</td>
+                  <td class="px-5 py-2.5 text-sm">Rahul S. <span class="text-xs text-muted">(Admin)</span></td>
+                  <td class="px-5 py-2.5 font-mono text-xs">ingest_document</td>
+                  <td class="px-5 py-2.5 text-xs text-muted">Acme · Research</td>
+                  <td class="px-5 py-2.5 text-right font-mono text-xs">−210</td>
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">b7c2…</td>
+                  <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
+                </tr>
+                <tr class="border-b border-line/60 bg-warning/5">
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">14:15:33</td>
+                  <td class="px-5 py-2.5 text-sm text-muted">System</td>
+                  <td class="px-5 py-2.5 font-mono text-xs text-warning">rate_limit_hit</td>
+                  <td class="px-5 py-2.5 text-xs text-muted">Acme · Research</td>
+                  <td class="px-5 py-2.5 text-right font-mono text-xs text-muted">0</td>
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">d1e4…</td>
+                  <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
+                </tr>
+                <tr class="border-b border-line/60">
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">14:10:22</td>
+                  <td class="px-5 py-2.5 text-sm">Mina L. <span class="text-xs text-muted">(Member)</span></td>
+                  <td class="px-5 py-2.5 font-mono text-xs">crawl_url</td>
+                  <td class="px-5 py-2.5 text-xs text-muted">Acme · Research</td>
+                  <td class="px-5 py-2.5 text-right font-mono text-xs">−56</td>
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">e8f0…</td>
+                  <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
+                </tr>
+                <tr class="border-b border-line/60 bg-danger/5">
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">13:58:44</td>
+                  <td class="px-5 py-2.5 text-sm">Chen W. <span class="text-xs text-muted">(Member)</span></td>
+                  <td class="px-5 py-2.5 font-mono text-xs"><span class="text-danger">query_refused</span> <span class="text-[10px] text-muted">(injection blocked)</span></td>
+                  <td class="px-5 py-2.5 text-xs text-muted">—</td>
+                  <td class="px-5 py-2.5 text-right font-mono text-xs text-muted">0</td>
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">f2a1…</td>
+                  <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">13:45:17</td>
+                  <td class="px-5 py-2.5 text-sm">Elena L. <span class="text-xs text-muted">(pending)</span></td>
+                  <td class="px-5 py-2.5 font-mono text-xs">invite_accepted</td>
+                  <td class="px-5 py-2.5 text-xs text-muted">Acme · Research</td>
+                  <td class="px-5 py-2.5 text-right font-mono text-xs text-muted">0</td>
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">c9b3…</td>
+                  <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        </div><!-- end TAB PANEL: Audit -->
+
       </div>
     </div>
   </div>

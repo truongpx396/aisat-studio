@@ -38,7 +38,7 @@ An ingested unit of knowledge. Partitioned by `created_at`.
 ### Chat Session (P)
 A member's conversational thread with remembered context. Partitioned by `HASH (user_id)`.
 - `id`, `workspace_id`, `user_id`, `mem0_session_id`, `created_at`
-- Rules: session context retained for coherent follow-ups (FR-009); Mem0 injects per-user memory at graph Node 5.
+- Rules: session context retained for coherent follow-ups (FR-009); Mem0 injects per-user memory at graph Node 5. Suggested follow-up questions are generated at Node 7 (post-generate) and delivered via the `suggestions` SSE event — they are ephemeral and never persisted (FR-031).
 
 ### Credit Balance & Ledger (P)
 - `workspace_credits` (K-adjacent): PK `workspace_id`, `balance` INT, `updated_at` — authoritative copy is the Redis hot key; this row is the durable mirror.

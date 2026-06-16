@@ -16,6 +16,7 @@ inline citations, and every answer is fully observable in a debug panel.
 - **User bubble**: right-aligned, `--color-surface` background.
 - **Assistant answer**: left-aligned, full-width prose. Stream **token-by-token** (typewriter), never a 10s spinner. While retrieving, show a compact step indicator (intent → retrieve → rerank → generate) with skeletons.
 - **Citation chips**: inline `[1] [2]` run-green chips; clicking scrolls to a **Sources** strip under the answer listing each cited document (title + clearance badge + snippet).
+- **Suggested follow-ups**: after the Sources strip, render 2–3 clickable question chips (FR-031). Style: `border border-line bg-surface hover:border-primary hover:bg-primary/5` pill buttons, prefix icon (sparkle/arrow), short question text truncated to one line. Clicking a chip fills the composer and submits immediately — no extra confirmation. Chips are hidden when the answer was refused (injection-blocked) or returned zero sources. Chips appear with a fade-in after streaming completes to avoid layout shift during generation.
 - **No-answer state**: when no authorized docs are relevant, assistant clearly says it has no relevant information — never fabricates (edge case).
 - **Refusal state**: disallowed input / prompt-injection is refused **before** retrieval/credit spend, shown as a distinct system notice (FR-010).
 

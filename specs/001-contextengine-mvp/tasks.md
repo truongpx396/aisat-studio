@@ -169,7 +169,9 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 - [ ] T074 [P] [US2] Implement response-format + prompt assets in `backend-python/prompts/{query_rewrite,response_format,retrieval,metadata_extract,image_caption}/`
 - [ ] T075 [US2] Implement query router consuming `query.agent.<ws>`, running the graph, streaming partial results via Redis pub/sub keyed by `stream_id` in `backend-python/src/routers/query.py`
 - [ ] T076 [US2] Implement Go query service + SSE relay (`POST /query` publishes `query.agent.<ws>`, moderation short-circuit, `GET /query/{streamId}` SSE relay, `GET /query/{streamId}/debug`) + `SetupModule` in `backend-go/internal/query/service/query.go`, `backend-go/internal/query/infra/transport/http/handler.go`, `backend-go/internal/query/module.go`
-- [ ] T077 [P] [US2] Implement chat UI (multi-turn conversation, streaming tokens, inline citations) in `frontend/src/features/chat/`
+- [ ] T077 [P] [US2] Implement chat UI (multi-turn conversation, streaming tokens, inline citations, suggested follow-up chips) in `frontend/src/features/chat/` (FR-031)
+- [ ] T077a [P] [US2] Implement follow-up question generator (Node 7, post-generate) in `backend-python/src/services/agent/suggestions.py`; emits `suggestions` SSE event with 2–3 clearance-scoped question strings after `done`; suppressed on moderation block or zero-source answer (FR-031)
+- [ ] T077b [P] [US2] Contract test for `suggestions` SSE event — correct shape `{ questions: string[] }`, exactly 2–3 items, suppressed when `source_count == 0` or answer was refused, in `backend-go/tests/contract/query_sse_suggestions_test.go` (FR-031)
 
 **Checkpoint**: US1 + US2 form the MVP loop — ingest → ask → cited, access-scoped, injection-resistant answer with session memory.
 
