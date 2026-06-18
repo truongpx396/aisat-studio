@@ -81,6 +81,9 @@
           <svg class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"/><path d="M12 8v4l3 2"/></svg> Admin</a>
         <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-muted hover:bg-surface2 hover:text-ink transition" href="agents.html">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg> Agents</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-muted hover:bg-surface2 hover:text-ink transition" href="notifications.html">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg> Notifications
+          <span class="ml-auto grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 font-mono text-[10px] font-bold text-[#04210F]">3</span></a>
       </nav>
     </aside>
 
@@ -91,11 +94,43 @@
         <nav class="ml-4 flex gap-1 text-sm">
           <button @click="tab = 'usage'" :class="tab === 'usage' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Usage</button>
           <button @click="tab = 'members'" :class="tab === 'members' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Members</button>
+          <button @click="tab = 'broadcast'" :class="tab === 'broadcast' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Broadcast</button>
           <button @click="tab = 'audit'" :class="tab === 'audit' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Audit</button>
         </nav>
         <button class="ml-auto flex items-center gap-2 rounded-lg btn-gradient px-3 py-1.5 text-sm font-semibold transition cursor-pointer">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Invite
         </button>
+        <!-- Notification bell -->
+        <div class="relative" x-data="{ notifOpen: false }">
+          <button @click="notifOpen = !notifOpen" class="relative grid h-9 w-9 place-items-center rounded-lg border border-line bg-surface text-muted transition hover:border-slate-500 hover:text-ink cursor-pointer" title="Notifications" aria-label="Notifications">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <span class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 font-mono text-[10px] font-bold text-[#04210F]">3</span>
+          </button>
+          <div x-show="notifOpen" @click.outside="notifOpen = false" x-transition style="display:none" class="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-line bg-surface2 shadow-xl">
+            <div class="flex items-center justify-between border-b border-line px-4 py-2.5">
+              <span class="text-sm font-semibold">Notifications <span class="ml-1 font-mono text-xs text-muted">3 unread</span></span>
+              <button class="text-xs text-primary hover:underline cursor-pointer">Mark all read</button>
+            </div>
+            <div class="max-h-80 divide-y divide-line overflow-y-auto">
+              <a href="#" class="flex gap-3 bg-surface2 px-4 py-3 transition hover:bg-surface">
+                <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                <span class="min-w-0 flex-1"><span class="block text-sm text-ink">New member joined the workspace</span><span class="block text-xs text-muted">Rahul S. accepted an invite · 10m ago</span></span>
+                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"></span>
+              </a>
+              <a href="credits.html" class="flex gap-3 bg-surface2 px-4 py-3 transition hover:bg-surface">
+                <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-warning/15 text-warning"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
+                <span class="min-w-0 flex-1"><span class="block text-sm text-ink">Workspace credits 82% used</span><span class="block text-xs text-muted">12,480 of 70,000 left · 1h ago</span></span>
+                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"></span>
+              </a>
+              <a href="agents.html" class="flex gap-3 bg-surface2 px-4 py-3 transition hover:bg-surface">
+                <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-warning/15 text-warning"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg></span>
+                <span class="min-w-0 flex-1"><span class="block text-sm text-ink">Agent task halted at cost cap</span><span class="block text-xs text-muted">“Competitor scan” · 3h ago</span></span>
+                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"></span>
+              </a>
+            </div>
+            <a href="notifications.html" class="block border-t border-line px-4 py-2.5 text-center text-xs font-medium text-primary transition hover:bg-surface">View all notifications</a>
+          </div>
+        </div>
       </header>
 
       <div class="flex-1 overflow-y-auto px-6 py-6">
@@ -366,6 +401,52 @@
           </div>
         </section>
         </div><!-- end TAB PANEL: Members -->
+
+        <!-- TAB PANEL: Broadcast -->
+        <div x-show="tab === 'broadcast'" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+        <section class="grid gap-6 lg:grid-cols-5">
+          <!-- Composer -->
+          <div class="lg:col-span-3 space-y-4 rounded-xl border border-line bg-surface p-5">
+            <div>
+              <h2 class="text-base font-semibold">Broadcast announcement</h2>
+              <p class="mt-1 text-sm text-muted">Send a one-off announcement to <span class="text-ink font-medium">every current member</span> of this workspace. Delivery still respects each member's per-channel notification preferences.</p>
+            </div>
+            <div class="space-y-1.5">
+              <label class="block text-xs font-medium text-muted">Title</label>
+              <input class="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="e.g. Scheduled maintenance this Friday"/>
+            </div>
+            <div class="space-y-1.5">
+              <label class="block text-xs font-medium text-muted">Message</label>
+              <textarea rows="4" class="w-full resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Write the announcement members will see in their inbox…"></textarea>
+            </div>
+            <div class="flex items-center gap-3 rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-xs text-info">
+              <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              <span>Goes to all <span class="font-mono text-ink">4</span> current members. Members who disabled the broadcast email channel receive it in-app only. This action is recorded in the audit trail.</span>
+            </div>
+            <div class="flex items-center justify-end gap-2 pt-1">
+              <button class="rounded-lg border border-line px-3 py-1.5 text-sm text-muted hover:text-ink transition cursor-pointer">Cancel</button>
+              <button class="flex items-center gap-2 rounded-lg btn-gradient px-4 py-1.5 text-sm font-semibold transition cursor-pointer">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg> Send broadcast
+              </button>
+            </div>
+          </div>
+          <!-- Recent broadcasts -->
+          <div class="lg:col-span-2 space-y-3">
+            <p class="text-[11px] uppercase tracking-wider text-muted">Recent broadcasts</p>
+            <div class="rounded-xl border border-line bg-surface divide-y divide-line">
+              <div class="px-4 py-3">
+                <p class="text-sm font-medium text-ink">Quarterly knowledge cleanup</p>
+                <p class="mt-0.5 text-xs text-muted">Sent by Truong P. · 2d ago · <span class="font-mono text-ink">4</span> recipients</p>
+              </div>
+              <div class="px-4 py-3">
+                <p class="text-sm font-medium text-ink">New L4 clearance policy</p>
+                <p class="mt-0.5 text-xs text-muted">Sent by Mina K. · 1w ago · <span class="font-mono text-ink">3</span> recipients</p>
+              </div>
+            </div>
+            <p class="text-xs text-muted">Broadcasts never cross workspace boundaries and never bypass a member's per-channel preferences.</p>
+          </div>
+        </section>
+        </div><!-- end TAB PANEL: Broadcast -->
 
         <!-- TAB PANEL: Audit -->
         <div x-show="tab === 'audit'" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">

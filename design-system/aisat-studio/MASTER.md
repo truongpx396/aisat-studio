@@ -185,10 +185,10 @@
 
 **Pattern Name:** Persistent Sidebar + Top Bar Dashboard
 
-- **Layout:** Fixed left sidebar (workspace switcher + primary nav), sticky top bar (search, credit meter, user menu), scrollable content region. Optional right-hand inspector/debug drawer that slides in.
-- **Navigation:** Sidebar items — Library, Chat, Workspace, Credits, Admin, Agents. Active item marked with run-green left accent bar.
+- **Layout:** Fixed left sidebar (workspace switcher + primary nav), sticky top bar (search, credit meter, notification bell, user menu), scrollable content region. Optional right-hand inspector/debug drawer that slides in.
+- **Navigation:** Sidebar items — Library, Chat, Workspace, Credits, Admin, Agents, Notifications. Active item marked with run-green left accent bar. The Notifications item carries an unread-count badge and mirrors the top-bar bell's count.
 - **Density:** Information-dense but grouped into cards/panels with clear headers; use the spacing scale, not large landing-page gaps.
-- **Global chrome:** Credit balance meter is always visible in the top bar; near-limit (≥80%) turns amber, exhausted turns red.
+- **Global chrome:** Credit balance meter is always visible in the top bar; near-limit (≥80%) turns amber, exhausted turns red. A **notification bell** sits beside the user menu: it shows an unread-count badge and opens a dropdown inbox; the unread count and new items update live over the existing stream (SSE) without a page reload. Full history + per-category delivery preferences live on the dedicated Notifications screen (`pages/notifications.md`).
 
 ### Reusable patterns
 
@@ -196,6 +196,10 @@
 - **Clearance badge:** L1–L5 lock badge; higher levels use warmer/stronger accent. Never show documents above the viewer's clearance.
 - **Citation chip:** inline numbered `[1]` chip in run-green that links to the source document/section.
 - **Metric/score:** numeric values, scores, token counts, and credit amounts always set in Fira Code.
+- **Notification bell + badge:** outline bell in the top bar; unread count shown as a small run-green pill (red when any item is `urgent` priority). Empty/zero state hides the badge entirely. Badge count is Fira Code.
+- **Notification item:** a left category icon, a title (Fira Sans 14, semibold) + one-line body, a relative timestamp (muted), and an unread dot (run-green) on the left edge. The whole row is clickable and deep-links to the originating resource. Unread rows use a faint elevated surface (`--color-surface-2`); read rows drop to the base surface.
+- **Notification category icon/accent:** each category maps to a consistent icon + semantic accent — `ingestion` (cyan), `invite/member` (run-green), `credit` (amber → red when exhausted), `agent/task-halted` (amber), `share/clearance` (info cyan), `broadcast` (run-green megaphone). Use the same SVG icon set as the rest of the app (no emojis).
+- **Toast (transient):** for high-priority live events a small toast may slide in top-right (`--color-surface-2`, 1px border, auto-dismiss ~5s, pauses on hover, respects `prefers-reduced-motion`). Toasts never replace the persisted inbox entry.
 
 ---
 

@@ -120,9 +120,13 @@ console" canvas with run-green accents that signal active/successful AI work.
 ## Layout System
 
 Persistent left **sidebar** (workspace switcher + primary nav: Library, Chat,
-Workspace, Credits, Admin, Agents) + sticky **top bar** (search, always-visible
-credit meter, user menu) + scrollable content. The **Chat** screen adds a right
-**debug/inspector drawer** that exposes per-answer reasoning.
+Workspace, Credits, Admin, Agents, Notifications) + sticky **top bar** (search,
+always-visible credit meter, notification bell, user menu) + scrollable content.
+The **Chat** screen adds a right **debug/inspector drawer** that exposes
+per-answer reasoning. The **notification bell** in the top bar carries a live
+unread badge and opens a dropdown inbox; the **Notifications** sidebar item (also
+badged) and the bell's “View all” link both lead to the full Notifications screen,
+which holds history (Inbox) and per-category delivery preferences (Preferences).
 
 ## Components
 
@@ -137,6 +141,16 @@ credit meter, user menu) + scrollable content. The **Chat** screen adds a right
 - **Credit meter:** horizontal bar — green → amber at ≥80% → red when exhausted.
 - **Buttons:** primary = run-green fill with near-black text; secondary = outline
   on dark.
+- **Notification bell:** outline bell in the top bar with a `full`-radius unread
+  badge (run-green; red when any item is `urgent`). Opens a `surface-bright`
+  dropdown inbox of recent items with a “Mark all read” action and a “View all”
+  link to the Notifications screen.
+- **Notification item:** left category icon on a semantic tinted square, a title +
+  one-line body (Fira Sans), a relative timestamp (`on-surface-variant`), and a
+  run-green unread dot. Unread rows sit on `surface-bright`, read rows on
+  `surface`; the whole row deep-links to the originating resource. Category accents:
+  ingestion (cyan), invites/members (green), credits (amber→red), agent/task
+  (amber), shares/clearance (cyan), broadcast (green).
 
 ## Accessibility & Motion
 
