@@ -66,6 +66,26 @@
 
 Blocked-operation responses: `402 payment_required` (balance exhausted, with upgrade path, FR-018) and `429 limit_reached` (daily/user limit) — never a silent failure (SC-010).
 
+## Billing & payments (Phase 2, US4-ext)
+
+> Out of Phase 1 scope (see [spec.md](../spec.md) "Out of Scope"); full design in [billing-payments-design.md](../billing-payments-design.md). Additive to the credit backbone — consumption endpoints above are unchanged. All authenticated and workspace-scoped unless noted; mutating endpoints accept `Idempotency-Key`.
+
+| Method | Path | Purpose | Notes |
+|--------|------|---------|-------|
+| GET | `/billing/plans` | List active purchasable plans | Public catalog from `plans` in caller's currency; no provider IDs leaked |
+| POST | `/billing/checkout` | Start checkout for a plan | Body `{ plan_code, provider? }` → `{ checkout_url }`; resolves `provider_price_id`, upserts `billing_customers`. Admin/owner only (AZ1) |
+| GET | `/billing/subscription` | Current workspace subscription | `{ plan, status, current_period_end, cancel_at_period_end }` or `null` |
+| POST | `/billing/subscription/cancel` | Cancel at period end | Sets provider `cancel_at_period_end=true`; status synced via webhook. Owner only (AZ6 re-auth) |
+| GET | `/billing/portal` | Provider-hosted billing portal link | `{ portal_url }`. Admin/owner only |
+| GET | `/billing/payments` | Workspace payment/receipt history | Paginated `?limit=&cursor=` from `payments` |
+| POST | `/webhooks/{provider}` | Provider webhook ingress | **Unauthenticated**; verified by signature, not JWT. `{provider}` ∈ `stripe`\|`polar`\|`paypal`. Raw body required — bypasses JSON body-rewrite middleware (AP4, CRITICAL) |
+
+Billing responses:
+- `402 payment_required` now carries `upgrade_url` → `/billing/checkout` for the recommended plan (FR-018).
+- `POST /billing/checkout` by a non-admin → `403 forbidden`.
+- `POST /webhooks/{provider}` with a bad/missing signature → `400 invalid_signature` (logged as a security event), never `2xx`.
+- `POST /webhooks/{provider}` for an already-seen `provider_event_id` → `200` no-op (idempotent ack so the provider stops retrying).
+
 ## Local agents (US7)
 
 | Method | Path | Purpose | Notes |
@@ -75,6 +95,19 @@ Blocked-operation responses: `402 payment_required` (balance exhausted, with upg
 | POST | `/llm/proxy` | OpenAI-compatible LLM pass-through (proxy sub-mode) | Authenticates PAT, enforces token budget, deducts credits, resolves alias, forwards, traces (FR-026). BYOK devices do not use this. |
 | GET | `/agent-runs` / POST `/agent-runs/{id}/cancel` | List / cancel long-horizon runs | Cancel → `cancelling`→`cancelled` (FR-028, SC-009) |
 
+## Notifications (US8)
+
+| Method | Path | Purpose | Notes |
+|--------|------|---------|-------|
+| GET | `/notifications` | List caller's notifications (newest first) | Recipient-scoped via RLS (FR-036). Paginated `?limit=&cursor=`; `?unread=true` filters to unread |
+| GET | `/notifications/unread-count` | Caller's unread count for the bell badge | `{ unread: number }` (FR-033) |
+| POST | `/notifications/{id}/read` | Mark one notification read | Sets `read_at`; idempotent; 404 if not the recipient (FR-033, FR-036) |
+| POST | `/notifications/read-all` | Mark all caller notifications read | FR-033 |
+| GET | `/notifications/preferences` | List caller's per-category channel prefs | Missing rows return category defaults (FR-035) |
+| PUT | `/notifications/preferences` | Upsert caller's prefs | Body: `{ category, in_app, email }[]` (FR-035) |
+| GET | `/notifications/stream` (SSE) | Real-time push of new notifications + unread count | Events per [sse-events.md](./sse-events.md): `notification`, `unread_count` (FR-034) |
+| POST | `/admin/notifications/broadcast` | Send announcement to all workspace members (admin) | Body: `{ title, body, priority? }`; fans out per recipient prefs; audited (FR-037) |
+
 ## Contract test obligations
 
 - Access-control: a member never receives a document above clearance or outside workspace via `/documents` or `/query` (SC-001, hard).
@@ -82,3 +115,6 @@ Blocked-operation responses: `402 payment_required` (balance exhausted, with upg
 - Unsupported type: video/audio → `501 unsupported_type` (not silent).
 - Blocked credits: exhausted balance → `402` with upgrade path; daily limit → `429`; both with actionable message (SC-010).
 - Idempotency: repeated `/query` with same `Idempotency-Key` deducts once (SC-006).
+- Notification scoping: a member's `/notifications` list and `/notifications/stream` never include another member's or another workspace's notifications (SC-012, hard).
+- Mark-read: `POST /notifications/{id}/read` for a notification the caller does not own returns `404`, not the notification (FR-036).
+- Preferences honored: with a category's `email` channel disabled, an event in that category yields an in-app notification but no `notify.email.<ws>` publish (FR-035).

@@ -10,12 +10,12 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 **Tests**: Test tasks ARE included. The plan declares TDD NON-NEGOTIABLE (Constitution Principle VI), and every contract in `contracts/` carries explicit "Contract test obligations". Contract/integration tests are written first (Red), must fail, then implementation makes them pass (Green). Integration tests run real backing services via **Testcontainers** (`testcontainers-go` / `testcontainers-python` spin up Postgres/Redis/NATS/Qdrant per run — no shared/mocked infra); critical end-to-end journeys are exercised in the browser via **Playwright**.
 
-**Organization**: Tasks are grouped by user story (US1–US7) to enable independent implementation and testing. Within each story: tests → models → services → endpoints → integration.
+**Organization**: Tasks are grouped by user story (US1–US8) to enable independent implementation and testing. Within each story: tests → models → services → endpoints → integration.
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies on incomplete tasks)
-- **[Story]**: Which user story this task belongs to (US1–US7); omitted for Setup / Foundational / Polish
+- **[Story]**: Which user story this task belongs to (US1–US8); omitted for Setup / Foundational / Polish
 - Exact file paths are included in every task
 
 ## Path Conventions (from plan.md)
@@ -27,7 +27,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 ---
 
-## Phase 1: Setup (Shared Infrastructure)
+## Stage 1: Setup (Shared Infrastructure)
 
 **Purpose**: Three-runtime project skeleton, infra services, and tooling
 
@@ -47,11 +47,11 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 ---
 
-## Phase 2: Foundational (Blocking Prerequisites)
+## Stage 2: Foundational (Blocking Prerequisites)
 
 **Purpose**: Kernel interfaces, platform clients, RLS/migrations, shared middleware, and the LLM/MCP/access-control chokepoints that every user story depends on
 
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+**⚠️ CRITICAL**: No user story work can begin until this stage is complete
 
 ### Go kernel interfaces & platform clients
 
@@ -66,10 +66,10 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 ### Database schema, RLS & shared layer
 
 - [ ] T018 Create migration framework + base migration in `backend-go/migrations/0001_init.sql` (UUID v7 helpers, `SET LOCAL app.workspace_id` convention)
-- [ ] T019 Create kernel tables migration in `backend-go/migrations/0002_kernel.sql`: `users`, `workspaces`, `workspace_members`, `invites`, `audit_log`, `api_keys`, `plans`, `subscriptions`, `notifications`, `feature_flags`
-- [ ] T020 Create RLS policies migration in `backend-go/migrations/0003_rls.sql` applying `USING (workspace_id = current_setting('app.workspace_id')::uuid)` to every tenant-scoped table (FR-014, SC-001)
+- [ ] T019 Create kernel tables migration in `backend-go/migrations/0002_kernel.sql`: `users`, `workspaces`, `workspace_members`, `invites`, `audit_log`, `api_keys`, `plans`, `subscriptions`, `notifications` (recipient `user_id`, `category`, `priority`, `title`, `body`, `payload` JSONB, `read_at`, index `(user_id, read_at, created_at)`), `notification_preferences` (`user_id`, `workspace_id`, `category`, `in_app`, `email`, `UNIQUE(user_id, workspace_id, category)`), `feature_flags`
+- [ ] T020 Create RLS policies migration in `backend-go/migrations/0003_rls.sql` applying `USING (workspace_id = current_setting('app.workspace_id')::uuid)` to every tenant-scoped table (FR-014, SC-001); for `notifications` additionally restrict to the recipient via `USING (workspace_id = current_setting('app.workspace_id')::uuid AND user_id = current_setting('app.user_id')::uuid)` (FR-036, SC-012)
 - [ ] T021 [P] Implement shared error envelope `{code,message,details}` in `backend-go/internal/shared/errors/errors.go` and DTO helpers in `backend-go/internal/shared/dto/dto.go` (Principle VIII)
-- [ ] T022 [P] Implement Tenant middleware (resolves workspace from JWT/PAT, runs `SET LOCAL app.workspace_id`) in `backend-go/internal/shared/middleware/tenant.go` (FR-004, FR-027)
+- [ ] T022 [P] Implement Tenant middleware (resolves workspace from JWT/PAT, runs `SET LOCAL app.workspace_id` and `SET LOCAL app.user_id`) in `backend-go/internal/shared/middleware/tenant.go` (FR-004, FR-027, FR-036)
 - [ ] T023 [P] Implement Actor/auth + request-id + recovery middleware in `backend-go/internal/shared/middleware/auth.go` and `backend-go/internal/shared/middleware/observability.go`
 - [ ] T024 Implement app root wiring (build `appCtx`, call each feature's `SetupModule`) in `backend-go/cmd/api/main.go` and shared router in `backend-go/cmd/api/routes.go` (Principle IV)
 
@@ -80,6 +80,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 - [ ] T027 [P] Implement Qdrant access-control pre-filter helper in `backend-python/src/services/retrieval/filter.py` with **two filter builders** (FR-007, SC-001):
   - `personal_filter(workspace_id, user_id)` → `must = [workspace_id == ctx, user_id == requester_user_id]` (personal collection — owner-only, clearance irrelevant)
   - `workspace_filter(workspace_id, access_level)` → `must = [workspace_id == ctx, access_level <= effective_access_level]` (workspace collection — shared docs)
+  - **Deny-by-default guard**: any search invocation reaching Qdrant without a `workspace_id` filter (and, for the workspace collection, an `access_level` bound) MUST raise rather than execute — converting a missing-filter bug into a loud failure instead of a silent cross-tenant leak (SC-001)
   - Both filters must be tested with a member attempting to retrieve another member's personal doc (must return 0 results)
 - [ ] T028 Implement FastMCP server bootstrap + per-role `allowed_tools` allowlist dispatch guard in `backend-python/src/mcp_server/server.py` (FR-011, FR-012)
 - [ ] T029 [P] Implement FastAPI app entrypoint + NATS subscriber bootstrap in `backend-python/src/main.py`
@@ -99,7 +100,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 ---
 
-## Phase 3: User Story 1 - Ingest knowledge into a searchable library (Priority: P1) 🎯 MVP
+## Stage 3: User Story 1 - Ingest knowledge into a searchable library (Priority: P1) 🎯 MVP
 
 **Goal**: A member uploads files (PDF/DOCX/MD/image) or pastes a link; the system converts, captions images, auto-tags, summarizes, chunks, embeds, indexes, and streams live progress until the item is browsable in the library.
 
@@ -137,7 +138,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 ---
 
-## Phase 4: User Story 2 - Ask questions and get access-scoped, cited answers (Priority: P1)
+## Stage 4: User Story 2 - Ask questions and get access-scoped, cited answers (Priority: P1)
 
 **Goal**: A member asks a natural-language question; the LangGraph agent moderates, rewrites, retrieves (hybrid + rerank) within clearance scope, expands chunks, injects memory, generates a cited answer, and streams it — never surfacing content above clearance or following injected instructions.
 
@@ -151,6 +152,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 - [ ] T060 [P] [US2] Integration test for LangGraph graph happy path (moderate→rewrite→retrieve→rerank→memory→generate→cite) in `backend-python/tests/integration/test_agent_graph.py`
 - [ ] T060a [P] [US2] Integration test for empty/unanswerable query (no authorized documents relevant → grounded "no relevant information" refusal, no fabrication, no cross-clearance leak) in `backend-python/tests/integration/test_unanswerable_query.py` (FR-006, FR-007, SC-001)
 - [ ] T061 [P] [US2] Integration test for prompt-injection defenses (delimited retrieved doc with "ignore previous instructions" is treated as data; injected tool call does not escalate) in `backend-python/tests/integration/test_injection_defense.py` (FR-010, FR-011, SC-007)
+- [ ] T061a [P] [US2] Integration test for memory clearance scoping — write a memory from an L4 answer (with a unique sentinel fact), demote the member to L2, then ask a question that would surface it and assert the L4-derived memory is **not** injected at Node 5 and the sentinel never appears in the L2 answer (FR-009, SC-001, research §13)
 - [ ] T062 [P] [US2] Integration test for structured-data Tier 2 answer via fixed `query_employees/projects/metrics` tools in `backend-python/tests/integration/test_structured_query.py` (FR-008)
 
 ### Implementation for User Story 2
@@ -160,7 +162,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 - [ ] T065 [P] [US2] Implement hybrid retrieval in `backend-python/src/services/retrieval/hybrid.py` (FR-007, SC-001): run **two parallel Qdrant searches** — `personal` collection with `personal_filter(workspace_id, requester_user_id)` and `workspace` collection with `workspace_filter(workspace_id, user_access_level)` — then RRF-interleave both result sets before reranking. The merged candidate set must never contain chunks from another user's personal docs.
 - [ ] T066 [P] [US2] Implement reranker via LLM gateway `rerank` alias + hot/cold tier routing in `backend-python/src/services/retrieval/reranker.py` and `backend-python/src/services/retrieval/hot_cold.py`
 - [ ] T067 [P] [US2] Implement child→parent chunk expansion in `backend-python/src/services/retrieval/expand.py`
-- [ ] T068 [P] [US2] Implement Mem0 per-user memory injection in `backend-python/src/services/agent/memory.py` (FR-009)
+- [ ] T068 [P] [US2] Implement Mem0 per-user memory injection in `backend-python/src/services/agent/memory.py` (FR-009, SC-001, research §13): on **write**, stamp each memory with `workspace_id`, `user_id`, and `access_level` = the highest `access_level` among contributing chunks/answer; on **read** (Node 5), inject only memories satisfying `workspace_id == ctx AND user_id == ctx AND access_level <= effective_access_level` against the requester's **current** clearance — a memory above current clearance (e.g., post L4→L2 demotion) is never injected
 - [ ] T069 [P] [US2] Implement semantic + exact answer cache keyed by `workspace+user+access_level+model+query` with `cacheable_scope` in `backend-python/src/services/agent/cache.py` (FR-007, SC-001, research §2)
 - [ ] T070 [US2] Implement MCP knowledge tools (`search_personal_knowledge`, `search_workspace_knowledge`, `get_document_by_id`, `list_documents`) in `backend-python/src/mcp_server/tools/knowledge.py` (FR-006, FR-007)
 - [ ] T071 [P] [US2] Implement MCP structured tools (`query_employees`, `query_projects`, `query_metrics`, parameterized SQL only) in `backend-python/src/mcp_server/tools/structured.py` (FR-008)
@@ -177,7 +179,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 ---
 
-## Phase 5: User Story 3 - Access-controlled team workspace (Priority: P2)
+## Stage 5: User Story 3 - Access-controlled team workspace (Priority: P2)
 
 **Goal**: Members share a workspace combining personal + team knowledge; clearance-scoped retrieval/browsing; owners/admins invite, assign role/clearance, and revoke.
 
@@ -204,7 +206,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 ---
 
-## Phase 6: User Story 4 - Credit-based usage metering and budgets (Priority: P2)
+## Stage 6: User Story 4 - Credit-based usage metering and budgets (Priority: P2)
 
 **Goal**: Every AI operation deducts from a shared workspace balance in real time with three independent ceilings (workspace balance, per-user daily, per-call output cap); near-limit warning, graceful block, exactly-once charging.
 
@@ -231,7 +233,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 ---
 
-## Phase 7: User Story 5 - Observable debug panel (Priority: P2)
+## Stage 7: User Story 5 - Observable debug panel (Priority: P2)
 
 **Goal**: For every answer, a developer-facing panel exposes intent, tool called, index tier, access-filter result, hybrid/RRF/rerank scores, chunk expansion, injected memory, model, token cost, credits deducted, and a Langfuse trace link.
 
@@ -251,7 +253,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 ---
 
-## Phase 8: User Story 6 - Admin usage dashboard (Priority: P3)
+## Stage 8: User Story 6 - Admin usage dashboard (Priority: P3)
 
 **Goal**: A workspace admin views per-user/per-feature AI usage, credit consumption, and cost, and manages member limits.
 
@@ -272,7 +274,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 ---
 
-## Phase 9: User Story 7 - Long-horizon tasks via a local agent (Priority: P3)
+## Stage 9: User Story 7 - Long-horizon tasks via a local agent (Priority: P3)
 
 **Goal**: An optional local agent runs multi-step tasks using workspace-scoped tools, routing AI calls through the server by default (metered/audited); long tasks are durable, cancellable, and bounded by a per-task cost cap. All core features work with zero agents.
 
@@ -301,7 +303,34 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 ---
 
-## Phase 10: Polish & Cross-Cutting Concerns
+## Stage 10: User Story 8 - Stay informed through notifications (Priority: P3)
+
+**Goal**: Recipient-scoped notifications for ingestion, invites, credit warning/exhaustion, task-halt, doc-shared, clearance-change, member-joined, and admin broadcast — persisted to an in-app inbox, pushed in real time over SSE, and (per opted-in category) delivered by email via a provider-agnostic port. Each member controls delivery per category × per channel.
+
+**Independent Test**: Trigger an event for a recipient, confirm the in-app notification arrives in real time and increments the unread badge; mark read and confirm the badge decrements; disable a category's email channel and confirm a later event sends no email while still appearing in-app; confirm a second member never sees the first member's notifications.
+
+### Tests for User Story 8 ⚠️ (write first, must fail)
+
+- [ ] T129 [P] [US8] Contract test for `/notifications` list (`?unread=`, pagination), `/notifications/unread-count`, `/notifications/{id}/read` (404 for non-recipient), `/notifications/read-all`, `GET/PUT /notifications/preferences`, and `POST /admin/notifications/broadcast` in `backend-go/tests/contract/notifications_test.go` per [bff-rest.md](./contracts/bff-rest.md) (FR-032–FR-037)
+- [ ] T130 [P] [US8] Contract test for `/notifications/stream` SSE taxonomy (initial `unread_count`, then `notification` + `unread_count` per event) in `backend-go/tests/contract/notifications_sse_test.go` per [sse-events.md](./contracts/sse-events.md) (FR-034)
+- [ ] T131 [P] [US8] Integration test for recipient scoping — member A never receives/sees member B's notifications, and no cross-workspace leakage even at L5 (RLS) in `backend-go/tests/integration/notification_scoping_test.go` (FR-036, SC-012)
+- [ ] T132 [P] [US8] Integration test for preference + channel fan-out: disabled email channel publishes no `notify.email.<ws>`; simulated email-provider failure routes to `notify.email.dlq.<ws>` while in-app delivery succeeds in `backend-python/tests/integration/test_notification_email.py` (FR-035)
+
+### Implementation for User Story 8
+
+- [ ] T133 [P] [US8] Implement notification + preference models in `backend-go/internal/notification/model/notification.go` and `preference.go` (categories, priority, payload, read state)
+- [ ] T134 [US8] Implement notification service (consume `notify.<ws>`, resolve recipient prefs with category defaults, persist row, push in-app via Redis pub/sub `notify:user:<id>`, republish enabled emails to `notify.email.<ws>`) in `backend-go/internal/notification/service/notify.go` (FR-032–FR-035)
+- [ ] T135 [P] [US8] Implement inbox + preference repository (list/unread-count/mark-read/mark-all, prefs upsert) in `backend-go/internal/notification/infra/repo/notification_repo.go` (FR-033, FR-035)
+- [ ] T136 [US8] Implement notification HTTP + SSE transport (`/notifications/*`, `/notifications/stream` relaying `notify:user:<id>`, `/admin/notifications/broadcast`) + `SetupModule` in `backend-go/internal/notification/infra/transport/http/handler.go` and `backend-go/internal/notification/module.go` (FR-033, FR-034, FR-037)
+- [ ] T137 [US8] Wire producers to publish `notify.<ws>` events from existing flows (ingestion complete/failed, invite received/accepted/revoked, credit warning/exhausted, agent-run cost-cap halt, doc shared, clearance change, member joined) in their respective services (FR-032)
+- [ ] T138 [P] [US8] Implement Python email worker with provider-agnostic `EmailSender` port (default Resend, env-swappable), template rendering, retry with backoff, and `notify.email.dlq.<ws>` parking in `backend-python/src/services/notification/email_worker.py` (FR-035)
+- [ ] T139 [P] [US8] Implement notification bell + inbox + per-category/per-channel preferences UI (live SSE badge, mark read/all, deep-link via payload) in `frontend/src/features/notification/`
+
+**Checkpoint**: All 8 user stories independently functional; notifications are recipient-scoped, real-time in-app, and email-deliverable per preference.
+
+---
+
+## Stage 11: Polish & Cross-Cutting Concerns
 
 **Purpose**: Reliability, observability, retention, evaluation gate, and final validation across all stories
 
@@ -311,20 +340,30 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 - [ ] T125 Implement Phase 1 eval seed set + runner (`evals/run.py`: ≥20 prompt cases; `prompts/retrieval/eval.py`: ≥30 golden queries) with the hard access-filter assertion (query at level N never returns doc > N) in `backend-python/evals/run.py` and `backend-python/prompts/retrieval/eval.py` (FR-030, SC-002, SC-003)
 - [ ] T126 [P] Wire CI gates into `Makefile`/CI: lint+format (gofmt/golangci-lint, ruff/black, eslint/prettier), ≥80% coverage per runtime, Testcontainers integration runs (`go test -tags=integration` / `pytest -m integration`), Playwright E2E, performance/bundle-size checks, security scan, and the Phase 1 eval gate
 - [ ] T127 [P] Implement Playwright E2E suite for the critical journeys (upload→indexed library; ask→cited streamed answer + debug panel; access-scoped visibility for two clearances; near-limit warning + exhaustion block) in `frontend/tests/e2e/` (SC-004, SC-005, SC-008, SC-010)
-- [ ] T128 Execute [quickstart.md](./quickstart.md) validation Scenarios 1–7 end-to-end and record evidence (Principle X)
+- [ ] T128 Execute [quickstart.md](./quickstart.md) validation Scenarios 1–8 end-to-end and record evidence (Principle X)
+
+### Access-control adversarial hardening (SC-001, release blocker)
+
+> SC-001 is a release blocker at "100%". Functional happy-path tests are insufficient — these property-based and adversarial tests cover **every** surface that touches authorized content: Qdrant retrieval, semantic cache, Mem0 memory, and Postgres RLS. The two non-negotiable gates are the deny-by-default filter guard (T140) and the zero-above-clearance eval assertion (T125).
+
+- [ ] T140 [P] Property-based retrieval filter tests in `backend-python/tests/security/test_retrieval_filter_property.py` (Hypothesis): across randomized corpora over all 5 levels × both collections, assert no returned chunk has `access_level > requester_clearance` or a foreign `workspace_id`; assert a member B query never returns member A's personal-collection chunk even at L5; assert the **deny-by-default guard** (T027) raises when a search is attempted with no `workspace_id`/`access_level` filter (FR-007, SC-001)
+- [ ] T141 [P] Cross-clearance semantic-cache adversarial tests in `backend-python/tests/security/test_cache_cross_clearance.py`: same normalized query at L4 then L2 → L4 populates, L2 is a **miss** and never receives L4 bytes; same clearance but different `user_id` for personal-scoped answers → also a miss; inject a unique sentinel into the L4 answer and assert it never appears in any L2 response across N runs (FR-007, SC-001, research §2)
+- [ ] T142 [P] Memory temporal/adversarial tests in `backend-python/tests/security/test_memory_clearance.py`: extends T061a into a property test over write-clearance × read-clearance pairs — assert a memory is injected at Node 5 iff its stamped `access_level` ≤ the requester's current clearance, and a sentinel L4 fact is never surfaced after demotion (FR-009, SC-001, research §13)
+- [ ] T143 [P] RLS negative tests in `backend-go/tests/security/rls_negative_test.go`: a tenant query executed without `SET LOCAL app.workspace_id` returns 0 rows / errors (never the full table); a forged `workspace_id` in the request body is ignored (resolved server-side) and RLS blocks cross-workspace reads (FR-014, SC-001)
+- [ ] T144 Extend the Phase 1 eval gate (T125) with the **hard zero-above-clearance assertion** as a blocking CI check: across the full golden query set, no above-clearance labeled doc ID appears in any answer's citations or retrieved set; non-zero violations fail the build (FR-030, SC-001)
 
 ---
 
 ## Dependencies & Execution Order
 
-### Phase Dependencies
+### Stage Dependencies
 
-- **Setup (Phase 1)**: No dependencies — start immediately
-- **Foundational (Phase 2)**: Depends on Setup — **BLOCKS all user stories**
-- **User Stories (Phases 3–9)**: All depend on Foundational completion
+- **Setup (Stage 1)**: No dependencies — start immediately
+- **Foundational (Stage 2)**: Depends on Setup — **BLOCKS all user stories**
+- **User Stories (Stages 3–10)**: All depend on Foundational completion
   - US1 (P1) and US2 (P1) form the MVP; US2 retrieval/agent depends on US1 ingestion having indexed content for meaningful end-to-end tests, but both can be developed in parallel against fixtures
-  - US3–US7 can proceed in parallel once Foundational is done (if staffed)
-- **Polish (Phase 10)**: Depends on the targeted user stories being complete
+  - US3–US8 can proceed in parallel once Foundational is done (if staffed)
+- **Polish (Stage 11)**: Depends on the targeted user stories being complete
 
 ### User Story Dependencies
 
@@ -335,6 +374,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 - **US5 (P2)**: After US2 (extends the query graph + debug endpoint)
 - **US6 (P3)**: After Foundational — reads `llm_call_log` populated by US2/US4
 - **US7 (P3)**: After Foundational — reuses credits (US4) + MCP tools (US2); core works with zero agents (SC-008)
+- **US8 (P3)**: After Foundational — consumes events produced by US1/US3/US4/US7 flows; independently testable via a directly published `notify.<ws>` event; recipient-scoping is a release blocker (SC-012)
 
 ### Within Each User Story
 
@@ -346,7 +386,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 
 - All Setup tasks marked [P] run in parallel
 - All Foundational [P] tasks within their subsection run in parallel
-- Once Foundational completes, US1–US7 can be staffed in parallel
+- Once Foundational completes, US1–US8 can be staffed in parallel
 - All [P] test tasks within a story run in parallel (different files)
 - All [P] models within a story run in parallel
 
@@ -374,10 +414,10 @@ Task T051: "Crawl4AI crawler in backend-python/src/services/ingestion/crawler.py
 
 ### MVP First (User Stories 1 + 2)
 
-1. Complete Phase 1: Setup
-2. Complete Phase 2: Foundational (CRITICAL — blocks all stories; includes RLS, LLM gateway, MCP server, access filter)
-3. Complete Phase 3: US1 (ingest → library)
-4. Complete Phase 4: US2 (ask → cited, access-scoped answer)
+1. Complete Stage 1: Setup
+2. Complete Stage 2: Foundational (CRITICAL — blocks all stories; includes RLS, LLM gateway, MCP server, access filter)
+3. Complete Stage 3: US1 (ingest → library)
+4. Complete Stage 4: US2 (ask → cited, access-scoped answer)
 5. **STOP and VALIDATE**: quickstart Scenarios 1, 2, 4 (ingest→answer, access scoping, injection refusal)
 6. Deploy/demo the core knowledge loop
 

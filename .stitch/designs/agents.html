@@ -83,6 +83,9 @@
         <a class="relative flex items-center gap-3 rounded-lg bg-surface2 px-3 py-2 font-medium text-ink" href="#">
           <span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary"></span>
           <svg class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg> Agents</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-muted hover:bg-surface2 hover:text-ink transition" href="notifications.html">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg> Notifications
+          <span class="ml-auto grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 font-mono text-[10px] font-bold text-[#04210F]">3</span></a>
       </nav>
     </aside>
 
@@ -93,6 +96,37 @@
         <button @click="showRegister = true; registerStep = 1" class="ml-auto flex items-center gap-2 rounded-lg btn-gradient px-3 py-1.5 text-sm font-semibold transition cursor-pointer">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Register agent
         </button>
+        <!-- Notification bell -->
+        <div class="relative" x-data="{ notifOpen: false }">
+          <button @click="notifOpen = !notifOpen" class="relative grid h-9 w-9 place-items-center rounded-lg border border-line bg-surface text-muted transition hover:border-slate-500 hover:text-ink cursor-pointer" title="Notifications" aria-label="Notifications">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <span class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 font-mono text-[10px] font-bold text-[#04210F]">3</span>
+          </button>
+          <div x-show="notifOpen" @click.outside="notifOpen = false" x-transition style="display:none" class="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-line bg-surface2 shadow-xl">
+            <div class="flex items-center justify-between border-b border-line px-4 py-2.5">
+              <span class="text-sm font-semibold">Notifications <span class="ml-1 font-mono text-xs text-muted">3 unread</span></span>
+              <button class="text-xs text-primary hover:underline cursor-pointer">Mark all read</button>
+            </div>
+            <div class="max-h-80 divide-y divide-line overflow-y-auto">
+              <a href="library.html" class="flex gap-3 bg-surface2 px-4 py-3 transition hover:bg-surface">
+                <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-info/15 text-info"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg></span>
+                <span class="min-w-0 flex-1"><span class="block text-sm text-ink">Ingestion complete — <span class="font-medium">Q3-revenue.pdf</span></span><span class="block text-xs text-muted">Ready to query · 2m ago</span></span>
+                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"></span>
+              </a>
+              <a href="credits.html" class="flex gap-3 bg-surface2 px-4 py-3 transition hover:bg-surface">
+                <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-warning/15 text-warning"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
+                <span class="min-w-0 flex-1"><span class="block text-sm text-ink">Workspace credits 82% used</span><span class="block text-xs text-muted">12,480 of 70,000 left · 1h ago</span></span>
+                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"></span>
+              </a>
+              <a href="#" class="flex gap-3 bg-surface2 px-4 py-3 transition hover:bg-surface">
+                <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-warning/15 text-warning"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg></span>
+                <span class="min-w-0 flex-1"><span class="block text-sm text-ink">Agent task halted at cost cap</span><span class="block text-xs text-muted">“Competitor scan” · 3h ago</span></span>
+                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"></span>
+              </a>
+            </div>
+            <a href="notifications.html" class="block border-t border-line px-4 py-2.5 text-center text-xs font-medium text-primary transition hover:bg-surface">View all notifications</a>
+          </div>
+        </div>
       </header>
 
       <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">

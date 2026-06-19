@@ -39,6 +39,7 @@ An ingested unit of knowledge. Partitioned by `created_at`.
 A member's conversational thread with remembered context. Partitioned by `HASH (user_id)`.
 - `id`, `workspace_id`, `user_id`, `mem0_session_id`, `created_at`
 - Rules: session context retained for coherent follow-ups (FR-009); Mem0 injects per-user memory at graph Node 5. Suggested follow-up questions are generated at Node 7 (post-generate) and delivered via the `suggestions` SSE event — they are ephemeral and never persisted (FR-031).
+- **Memory access-control invariant** (research §13): every Mem0 memory carries `workspace_id`, `user_id`, and an `access_level` stamp = the highest `access_level` among the chunks/answer that produced it. Node 5 injects a memory only when `workspace_id == ctx AND user_id == ctx AND access_level <= effective_access_level` against the requester's **current** clearance — so a memory distilled from a doc above current clearance (e.g., after an L4→L2 demotion) is never injected (SC-001).
 
 ### Credit Balance & Ledger (P)
 - `workspace_credits` (K-adjacent): PK `workspace_id`, `balance` INT, `updated_at` — authoritative copy is the Redis hot key; this row is the durable mirror.
@@ -77,8 +78,26 @@ Workspace-scoped operational data answerable via fixed tools.
 - `metrics` (`id`, `workspace_id`, `project_id`, `metric_name`, `value`, `recorded_at`)
 - Rules: queried only by fixed parameterized tools, never free-form SQL (FR-008).
 
+### Notifications (K)
+Recipient-scoped record of a workspace event, surfaced in-app and optionally by email (US8).
+- `notifications`: `id`, `workspace_id`, `user_id` (recipient), `category` (`ingestion_complete`|`ingestion_failed`|`invite_received`|`invite_accepted`|`invite_revoked`|`credit_warning`|`credit_exhausted`|`task_halted`|`doc_shared`|`clearance_changed`|`member_joined`|`admin_broadcast`), `priority` (`info`|`warning`|`critical`), `title`, `body`, `payload` JSONB (resource refs for deep-linking: `doc_id`/`invite_id`/`run_id`/`job_id`), `read_at` (NULL = unread), `created_at`
+- `notification_preferences`: `id`, `user_id`, `workspace_id`, `category`, `in_app` BOOL, `email` BOOL, `UNIQUE(user_id, workspace_id, category)`
+- Rules: RLS restricts `notifications` to `user_id = current_user` within `workspace_id` — a notification is never visible to any other member or across workspaces, even at L5 (FR-036, SC-012). The notification service applies `notification_preferences` before delivery; an absent preference row uses the category default (in-app on; email on for `credit_warning`, `credit_exhausted`, `invite_received`, `task_halted`, off otherwise) (FR-035). Index on `(user_id, read_at, created_at)` for inbox + unread-count queries.
+
 ### Supporting kernel tables
-- `api_keys` (K), `plans` (K), `subscriptions` (K), `notifications` (K), `feature_flags` (K), `token_usage_daily` (P, per-role daily token counter, partitioned by `usage_date`).
+- `api_keys` (K), `plans` (K), `subscriptions` (K), `feature_flags` (K), `token_usage_daily` (P, per-role daily token counter, partitioned by `usage_date`).
+- The `plans` and `subscriptions` rows above are Phase 1 stubs (status/entitlement only).
+
+### Billing & payments (Phase 2, US4-ext)
+
+> Out of Phase 1 scope (see [spec.md](./spec.md) "Out of Scope"); full schema in [billing-payments-design.md](./billing-payments-design.md). **Additive** to the credit backbone — `workspace_credits`, `credit_ledger`, and the consumption hot path are unchanged. A provider only converts fiat → credits (one-time top-up) or grants a recurring allotment (subscription), then appends a `credit_ledger` grant row keyed by `idem_key` (reuses the SC-006 double-debit guard). Money is integer minor units (`BIGINT` + ISO-4217 `currency`), never floats.
+
+- `plans` (K) — **supersedes the stub above**: purchasable credit pack or subscription tier (`code`, `kind`, `price_minor`, `currency`, `credit_allotment`, `billing_interval`, `is_active`).
+- `plan_provider_prices` (K) — maps one logical plan to each provider's external price/product ID (`stripe`|`polar`|`paypal`).
+- `billing_customers` (K) — links a `workspace_id` to a provider customer record (workspace is the unit of billing).
+- `subscriptions` (K) — **supersedes the stub above**: active recurring entitlement with webhook-driven `status`, period bounds, and `cancel_at_period_end`.
+- `payments` (K) — fiat transaction record (top-up or subscription invoice) for receipts/refunds/reconciliation; 1:1 with a `credit_ledger` grant via `idem_key`.
+- `payment_events` (K) — verified provider webhook dedup + audit (`UNIQUE (provider, provider_event_id)`, AP4).
 
 ## Vector store (Qdrant) payload schema
 
@@ -119,6 +138,8 @@ erDiagram
     WORKSPACE ||--o{ EMPLOYEE : "scopes"
     WORKSPACE ||--o{ PROJECT : "scopes"
     PROJECT ||--o{ METRIC : "measures"
+    USER ||--o{ NOTIFICATION : "receives"
+    WORKSPACE ||--o{ NOTIFICATION : "scopes"
 ```
 
 ## Validation & invariants (test targets)
@@ -133,3 +154,5 @@ erDiagram
 | Raw prompt/response purged at 30 days | Clarification Q5, FR-024 | Partition drop + PII scrub-before-write |
 | Long-horizon run never exceeds `credits_cap` | SC-009, FR-028 | Per-step cap check in worker loop |
 | Disallowed/injection input refused before retrieval/spend | SC-007, FR-010 | LangGraph Node 0 moderation gate |
+| A memory is injected only when its stamped `access_level` ≤ requester's current clearance | SC-001 (blocker), research §13 | Mem0 `access_level` stamp on write + Node 5 read-time clearance filter |
+| A notification is visible only to its recipient, never to other members or across workspaces | SC-012 (blocker), FR-036 | `notifications` RLS (`user_id = current_user` within `workspace_id`) |

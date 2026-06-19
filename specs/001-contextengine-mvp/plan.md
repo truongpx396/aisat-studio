@@ -101,6 +101,7 @@ backend-go/                      # Go BFF, gateway, kernel (template-level + pro
 │   ├── credits/                 # feature: ledger service + repo + transport
 │   ├── ingest/                  # feature: presign/transport + ingestion orchestration
 │   ├── query/                   # feature: query transport + SSE relay
+│   ├── notification/            # feature: notify service (fan-out + prefs), inbox repo, SSE relay, admin broadcast (US8)
 │   └── policy/                  # feature: agent-gateway policy + repo
 ├── migrations/                  # SQL migrations (RLS policies, partitions)
 └── tests/                       # contract, integration (//go:build integration, Testcontainers), e2e
@@ -109,9 +110,10 @@ backend-python/                  # ML/AI workers, agent, ingestion, MCP server
 ├── src/
 │   ├── routers/                 # ingest, query, crawl, admin (FastAPI)
 │   ├── services/
-│   │   ├── llm_gateway.py       # single LLM chokepoint (aliases, fallback, budget, trace)
+│   │   ├── llm_gateway.py       # single LLM chokepoint (aliases, fallback, budget, trace); also the Phase-2 context-compression seam (Headroom, flag-gated — research.md §12)
 │   │   ├── ingestion/           # pipeline, chunker, captioner, markitdown, crawler, tagger
 │   │   ├── retrieval/           # hybrid, reranker, hot_cold, filter
+│   │   ├── notification/        # email worker: EmailSender port (default Resend), renders + sends, DLQ on exhaustion (US8)
 │   │   └── agent/               # graph (8 nodes: 7 RAG + Node 7 suggestions), memory (Mem0), cache (semantic), suggestions (FR-031)
 │   ├── mcp_server/              # server.py + tools/{knowledge,structured,utility}, billing/ledger.py
 │   ├── baml_client/             # generated BAML client
