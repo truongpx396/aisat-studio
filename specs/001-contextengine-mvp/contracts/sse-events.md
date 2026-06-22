@@ -50,6 +50,13 @@ interface Notification {
 - `status.stage` progression: `received` → `converting` → `extracting_metadata` → `chunking` → `embedding` → `indexed`.
 - Terminal error stages via `error.code`: `unsupported_type` (video/audio stub), `oversize`, `dlq_parked`, `failed` — never a silent stall (FR-003).
 
+### Note-enrich stream — `GET /notes/{id}/enrich/{streamId}` (US1, FR-001)
+- Interactive generation (member waits for a draft), so it mirrors the query-stream shape and reuses the same event taxonomy — no new event *types*.
+- `status.stage` progression: `fetching` → `distilling` → `drafting` → `token` deltas → `done`.
+- A link that fails the SSRF guard or fetch is surfaced via a `status` stage (skipped link) — one bad URL never fails the whole draft.
+- The draft is **not persisted**; it lives client-side until the member accepts (`POST /notes/{id}`), which then enters the normal ingestion stream above.
+- `done.credits_deducted` reflects the exact charge (`operation_type='enrich'`), reconciling to the ledger like any generation (SC-006).
+
 ### Notification stream — `GET /notifications/stream` (US8)
 - Long-lived per-user stream relaying the recipient's notifications from Redis pub/sub (`notify:user:<user_id>`) as SSE.
 - On connect: emits an initial `unread_count`. Thereafter, each new notification emits a `notification` event followed by an updated `unread_count`.

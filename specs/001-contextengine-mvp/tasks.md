@@ -109,25 +109,26 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 ### Tests for User Story 1 ⚠️ (write first, must fail)
 
 - [ ] T035 [P] [US1] Contract test for `POST /ingest/presign` (oversize → `413`, unsupported video/audio → `501`, access_level ≤ caller clearance) in `backend-go/tests/contract/ingest_presign_test.go` per [bff-rest.md](./contracts/bff-rest.md)
-- [ ] T036 [P] [US1] Contract test for `POST /ingest/link`, `POST /ingest/note`, and `GET /ingest/{jobId}/status` SSE stages in `backend-go/tests/contract/ingest_test.go`
-- [ ] T037 [P] [US1] Contract test for ingestion NATS subjects (`ingestion.pdf/docx/image/crawl`, `audio`→501 stub, embed-outage→`ingestion.dlq`) in `backend-python/tests/contract/test_ingestion_subjects.py` per [nats-subjects.md](./contracts/nats-subjects.md)
+- [ ] T036 [P] [US1] Contract test for `POST /notes`, `POST /notes/{id}/enrich`, `GET /notes/{id}/enrich/{streamId}` SSE stages, note accept (`POST /notes/{id}`), and `GET /ingest/{jobId}/status` in `backend-go/tests/contract/ingest_test.go` per [bff-rest.md](./contracts/bff-rest.md)
+- [ ] T037 [P] [US1] Contract test for ingestion + enrich NATS subjects (`ingestion.pdf/docx/image`, `enrich.note` → SSRF-guarded crawl → `ingestion.crawl` internal step, `audio`→501 stub, embed-outage→`ingestion.dlq`) in `backend-python/tests/contract/test_ingestion_subjects.py` per [nats-subjects.md](./contracts/nats-subjects.md)
 - [ ] T038 [P] [US1] Integration test for ingestion pipeline (PDF → converting → metadata → chunking → embedding → indexed) in `backend-python/tests/integration/test_ingestion_pipeline.py`
 - [ ] T039 [P] [US1] Contract test for `GET /documents` and `GET /documents/{id}` (clearance + RLS scoped, image caption present) in `backend-go/tests/contract/documents_test.go`
 
 ### Implementation for User Story 1
 
-- [ ] T040 [US1] Create `Document` partitioned table migration (`source_type`, `tags[]`, `summary`, `data_type`, `access_level`, `scope`, server-stamped security fields, partition by `created_at`) in `backend-go/migrations/0010_documents.sql` (FR-004)
+- [ ] T040 [US1] Create `Document` partitioned table migration (`source_type` incl. `note`, note columns `body`/`source_links[]`/`citations[]`/`enrich_status`, `tags[]`, `summary`, `data_type`, `access_level`, `scope`, server-stamped security fields, partition by `created_at`) in `backend-go/migrations/0010_documents.sql` (FR-004, FR-001)
 - [ ] T041 [P] [US1] Implement `Document` model in `backend-go/internal/ingest/model/document.go`
 - [ ] T042 [P] [US1] Implement ingest DTOs + errors (presign request/response, oversize, unsupported) in `backend-go/internal/ingest/dto/dto.go` and `backend-go/internal/ingest/errors/errors.go`
 - [ ] T043 [US1] Implement presign service (validate `content_length ≤ max_upload_bytes` → 413, reject video/audio → 501, stamp security fields, default access_level to caller clearance, issue S3 presigned PUT) in `backend-go/internal/ingest/service/presign.go` (FR-003, FR-004)
-- [ ] T044 [US1] Implement ingestion orchestration service (S3 event → publish `ingestion.<mime>.<ws>`; `/ingest/link` → publish `ingestion.crawl.<ws>`) in `backend-go/internal/ingest/service/orchestrate.go`
+- [ ] T044 [US1] Implement ingestion + enrich orchestration service (S3 event → publish `ingestion.<mime>.<ws>`; `POST /notes/{id}/enrich` → publish `enrich.note.<ws>`; note accept → normal ingestion) in `backend-go/internal/ingest/service/orchestrate.go` (FR-001)
 - [ ] T045 [US1] Implement document repository (RLS-scoped list/get/soft-delete) in `backend-go/internal/ingest/infra/repo/document_repo.go`
-- [ ] T046 [US1] Implement ingest HTTP transport (`/ingest/presign`, `/ingest/link`, `/ingest/note`, `/ingest/{jobId}/status` SSE, `/documents`, `/documents/{id}`, DELETE) + `SetupModule` in `backend-go/internal/ingest/infra/transport/http/handler.go` and `backend-go/internal/ingest/module.go`
+- [ ] T046 [US1] Implement ingest + notes HTTP transport (`/ingest/presign`, `/notes`, `/notes/{id}/enrich`, `/notes/{id}/enrich/{streamId}` SSE, `/notes/{id}` accept, `/ingest/note`, `/ingest/{jobId}/status` SSE, `/documents`, `/documents/{id}`, DELETE) + `SetupModule` in `backend-go/internal/ingest/infra/transport/http/handler.go` and `backend-go/internal/ingest/module.go`
 - [ ] T047 [P] [US1] Implement ingestion schemas in `backend-python/src/schemas/ingest.py`
 - [ ] T048 [US1] Implement ingestion pipeline orchestrator + NATS consumers per MIME, with status emission via Redis pub/sub in `backend-python/src/services/ingestion/pipeline.py` and `backend-python/src/routers/ingest.py`
 - [ ] T049 [P] [US1] Implement MarkItDown converter (PDF/DOCX/MD) in `backend-python/src/services/ingestion/markitdown.py` (FR-001)
 - [ ] T050 [P] [US1] Implement image captioner via LLM gateway `fast` alias in `backend-python/src/services/ingestion/captioner.py` (FR-002)
-- [ ] T051 [P] [US1] Implement Crawl4AI web-page crawler (consumes `ingestion.crawl.<ws>`) in `backend-python/src/services/ingestion/crawler.py` (FR-001)
+- [ ] T051 [P] [US1] Implement shared `web_distill(urls, intent)` capability — SSRF-guarded fetch (https-only; reject private/loopback/link-local/reserved IPs after resolving all A/AAAA; `redirect:error`; bounded size+timeout) → Crawl4AI → distill-against-intent — in `backend-python/src/services/ingestion/web_distill.py` (FR-001). Reused by Phase-2 `web_search`.
+- [ ] T051a [P] [US1] Implement note-enrich worker (consumes `enrich.note.<ws>`: calls `web_distill(source_links, intent=body)`, LLM-synthesizes a draft, streams `fetching→distilling→drafting→token→done` via Redis pub/sub; draft not persisted) in `backend-python/src/services/ingestion/enrich.py` (FR-001)
 - [ ] T052 [P] [US1] Implement `ingestion.audio` 501 stub consumer in `backend-python/src/services/ingestion/audio_stub.py` (FR-003)
 - [ ] T053 [P] [US1] Implement BAML metadata extractor (advisory tags/data_type/summary/suggested_sensitivity — advisory only) in `backend-python/src/services/ingestion/tagger.py` (FR-002, FR-005)
 - [ ] T054 [US1] Implement parent/child chunker (child 200 / parent 1000 tokens, `parent_doc_id` link) in `backend-python/src/services/ingestion/chunker.py`
@@ -166,7 +167,7 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 - [ ] T069 [P] [US2] Implement semantic + exact answer cache keyed by `workspace+user+access_level+model+query` with `cacheable_scope` in `backend-python/src/services/agent/cache.py` (FR-007, SC-001, research §2)
 - [ ] T070 [US2] Implement MCP knowledge tools (`search_personal_knowledge`, `search_workspace_knowledge`, `get_document_by_id`, `list_documents`) in `backend-python/src/mcp_server/tools/knowledge.py` (FR-006, FR-007)
 - [ ] T071 [P] [US2] Implement MCP structured tools (`query_employees`, `query_projects`, `query_metrics`, parameterized SQL only) in `backend-python/src/mcp_server/tools/structured.py` (FR-008)
-- [ ] T072 [P] [US2] Implement MCP utility tools (`get_current_datetime`, `crawl_url` role-gated) in `backend-python/src/mcp_server/tools/utility.py` (FR-011, FR-012)
+- [ ] T072 [P] [US2] Implement MCP utility tools (`get_current_datetime`) in `backend-python/src/mcp_server/tools/utility.py` (FR-011, FR-012). No agent-callable crawl tool in Phase 1; the Phase-2 `web_search` tool (user+admin, per-search HITL) is registered additively later.
 - [ ] T073 [US2] Implement LangGraph 7-node agent graph (Node 0 moderation gate → intent router → rewrite → retrieve → rerank/expand → memory → generate+cite), treating retrieved content as delimited untrusted data in `backend-python/src/services/agent/graph.py` (FR-010, FR-011, SC-007)
 - [ ] T074 [P] [US2] Implement response-format + prompt assets in `backend-python/prompts/{query_rewrite,response_format,retrieval,metadata_extract,image_caption}/`
 - [ ] T075 [US2] Implement query router consuming `query.agent.<ws>`, running the graph, streaming partial results via Redis pub/sub keyed by `stream_id` in `backend-python/src/routers/query.py`
@@ -397,15 +398,16 @@ description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
 ```bash
 # Launch all US1 tests together (write first, must fail):
 Task T035: "Contract test for POST /ingest/presign in backend-go/tests/contract/ingest_presign_test.go"
-Task T036: "Contract test for /ingest/link|note + status SSE in backend-go/tests/contract/ingest_test.go"
+Task T036: "Contract test for /notes + enrich SSE + accept + status in backend-go/tests/contract/ingest_test.go"
 Task T037: "Contract test for ingestion NATS subjects in backend-python/tests/contract/test_ingestion_subjects.py"
 Task T038: "Integration test for ingestion pipeline in backend-python/tests/integration/test_ingestion_pipeline.py"
 Task T039: "Contract test for /documents in backend-go/tests/contract/documents_test.go"
 
-# Then launch parallel converters/captioner/crawler:
+# Then launch parallel converters/captioner/distiller:
 Task T049: "MarkItDown converter in backend-python/src/services/ingestion/markitdown.py"
 Task T050: "Image captioner in backend-python/src/services/ingestion/captioner.py"
-Task T051: "Crawl4AI crawler in backend-python/src/services/ingestion/crawler.py"
+Task T051: "Shared web_distill capability in backend-python/src/services/ingestion/web_distill.py"
+Task T051a: "Note-enrich worker in backend-python/src/services/ingestion/enrich.py"
 ```
 
 ---

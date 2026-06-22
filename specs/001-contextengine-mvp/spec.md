@@ -28,20 +28,22 @@ This specification covers **Phase 1 (Core App)** only. The Evaluation Suite (Pha
 
 ### User Story 1 - Ingest knowledge into a searchable library (Priority: P1)
 
-A team member uploads documents (PDF, DOCX, markdown/plain text, images) or pastes a web link. The system converts, organizes, auto-tags, and indexes the content, then shows real-time ingestion progress. Once complete, the content is queryable and browsable in the library.
+A team member uploads documents (PDF, DOCX, markdown/plain text, images) or writes a note, optionally attaching web links. For a note with links, the member can request enrichment: the system crawls the links, distills each page aligned to the note's intent, and proposes a draft the member reviews and accepts. The system converts, organizes, auto-tags, and indexes the content, then shows real-time progress. Once complete, the content is queryable and browsable in the library.
 
 **Why this priority**: Nothing else in the product delivers value without knowledge in the system. Ingestion is the foundational entry point and the first thing a new user does.
 
-**Independent Test**: Upload a PDF and paste a URL, observe progress to completion, and confirm both items appear in the library with auto-generated tags and a summary — without using any query or team features.
+**Independent Test**: Upload a PDF and create a note with an attached URL, run Enrich, accept the proposed draft, and confirm both items appear in the library with auto-generated tags and a summary — without using any query or team features.
 
 **Acceptance Scenarios**:
 
 1. **Given** an authenticated member with available credits, **When** they upload a supported file (PDF/DOCX/markdown/image), **Then** the system ingests it, assigns auto-taxonomy tags and a summary, and reports completion via live status.
-2. **Given** an authenticated member, **When** they paste a web link, **Then** the system crawls the page, converts it to text, ingests it, and surfaces it in the library.
-3. **Given** an uploaded image or diagram, **When** ingestion runs, **Then** a text caption describing the image is generated and stored alongside it.
-4. **Given** an unsupported source type (e.g., video/audio in Phase 1), **When** a member attempts to ingest it, **Then** the system clearly indicates the type is not yet supported rather than failing silently.
-5. **Given** a file larger than the workspace's per-file size limit (default 50 MB), **When** a member attempts to upload it, **Then** the system rejects it at the boundary with a clear over-size message rather than failing silently.
-6. **Given** an upload, **When** the member chooses an access level no higher than their own clearance, **Then** the document is stored at that level; absent a choice, the document defaults to the uploader's own clearance level.
+2. **Given** a note with one or more attached web links, **When** the member clicks **Enrich**, **Then** the system crawls the links, distills each page aligned to the note's intent, and streams a **draft suggestion**; the note body and index are unchanged until the member **accepts** the draft, at which point only the accepted note body is indexed and the crawled sources are stored as citation metadata.
+3. **Given** a member who finds an enrichment draft unsatisfactory, **When** they click **Enrich** again, **Then** the system re-runs enrichment and proposes a fresh draft, with no residual state from the discarded one.
+4. **Given** a pasted bare URL with no note body, **When** the member submits it, **Then** the system creates a note whose draft body is the page summary, subject to the same accept gate.
+5. **Given** an uploaded image or diagram, **When** ingestion runs, **Then** a text caption describing the image is generated and stored alongside it.
+6. **Given** an unsupported source type (e.g., video/audio in Phase 1), **When** a member attempts to ingest it, **Then** the system clearly indicates the type is not yet supported rather than failing silently.
+7. **Given** a file larger than the workspace's per-file size limit (default 50 MB), **When** a member attempts to upload it, **Then** the system rejects it at the boundary with a clear over-size message rather than failing silently.
+8. **Given** an upload or note, **When** the member chooses an access level no higher than their own clearance, **Then** the document is stored at that level; absent a choice, it defaults to the member's own clearance level.
 
 ---
 
@@ -191,7 +193,7 @@ Members receive notifications about workspace activity that concerns them — in
 
 **Ingestion**
 
-- **FR-001**: System MUST allow authenticated members to ingest PDF, DOCX, markdown/plain-text, and image files, and to ingest web pages from pasted links.
+- **FR-001**: System MUST allow authenticated members to ingest PDF, DOCX, markdown/plain-text, and image files, and to create notes. A note carries user-authored body text and optional attached web links. On explicit request (**Enrich**, re-runnable), the system MUST crawl the attached links, distill each page aligned to the note's intent, and present a draft suggestion the member reviews; only the member-accepted note body is indexed, with the crawled sources retained as citation metadata (not separately embedded). Pasting a bare URL with no body MUST create a note whose draft body is the page summary, subject to the same accept gate.
 - **FR-002**: System MUST automatically convert ingested content to a searchable form, generate descriptive captions for images/diagrams, and assign auto-taxonomy tags and a summary to each document.
 - **FR-003**: System MUST report ingestion progress to the member in real time and clearly indicate when an unsupported source type (e.g., video/audio in Phase 1) cannot be processed. System MUST enforce a per-file size limit that is admin-configurable per workspace (default 50 MB) and reject oversize files at the upload boundary with a clear message before any ingestion or credit spend.
 - **FR-004**: System MUST assign each document's security attributes (workspace, owner, tenant, access level) from the authenticated upload context, never from model-inferred content, MUST prevent an uploader from assigning an access level above their own clearance, and MUST default a document's access level to the uploader's own clearance level when none is explicitly chosen. Clearance is a fixed ladder of 5 ordered levels (1–5).
@@ -205,7 +207,7 @@ Members receive notifications about workspace activity that concerns them — in
 - **FR-009**: System MUST retain conversational session context so follow-up questions are answered coherently.
 - **FR-010**: System MUST screen each user input and short-circuit disallowed content or obvious prompt-injection attempts before performing retrieval or consuming credits, recording the event.
 - **FR-011**: System MUST treat all retrieved document content and tool output as untrusted data, never as instructions, and MUST NOT allow injected text to trigger additional tool calls or escalate tool access.
-- **FR-012**: In Phase 1, the system MUST expose only read-only tools (search, lookup, structured queries, utilities); the sole exception is a crawl utility that fetches an external page and enqueues it for ingestion into the caller's own workspace (no mutation of existing knowledge, no outbound message), which MUST be role-gated. Any future state-changing or message-sending action MUST require explicit human confirmation.
+- **FR-012**: In Phase 1, the system MUST expose only read-only agent tools (search, lookup, structured queries, utilities). Web crawling is NOT an autonomous agent action: it runs only as the internal fetch step of member-initiated note enrichment, and crawled output enters the knowledge base only after the member accepts the proposed draft (human-in-the-loop), so no external content mutates the index without explicit approval. A future agent-initiated web-search tool (Phase 2, available to `user` and `admin` roles) MUST require explicit per-search human confirmation before each fetch. Any other future state-changing or message-sending action MUST likewise require explicit human confirmation.
 
 **Workspace & Access Control**
 

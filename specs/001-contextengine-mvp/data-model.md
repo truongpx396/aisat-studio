@@ -31,9 +31,16 @@ Pending, revocable invitation.
 
 ### Document (P)
 An ingested unit of knowledge. Partitioned by `created_at`.
-- `id`, `workspace_id`, `user_id` (owner), `s3_key`, `source_type` (`pdf`|`docx`|`markdown`|`image`|`crawl`), `tags[]`, `summary`, `data_type`, `access_level` INT (1–5), `scope` (`personal`|`workspace`), `created_at`, `updated_at`, `deleted_at`
+- `id`, `workspace_id`, `user_id` (owner), `s3_key`, `source_type` (`pdf`|`docx`|`markdown`|`image`|`note`), `tags[]`, `summary`, `data_type`, `access_level` INT (1–5), `scope` (`personal`|`workspace`), `created_at`, `updated_at`, `deleted_at`
+- A **note** is a Document with `source_type='note'` (see Note below); it inherits all security/clearance/RLS/embedding behavior — no parallel entity. `crawl` is no longer a user-facing `source_type`; web crawling is now an internal fetch step of note enrichment (FR-001).
 - Security fields (`workspace_id`, `user_id`, `tenant_id`, `access_level`) are stamped server-side from the authenticated upload context — never model-inferred (FR-004/FR-005). `access_level` defaults to the uploader's own clearance when unset (Clarification Q1) and may never exceed it.
 - State transitions (ingestion status, tracked on the ingestion job / SSE, not necessarily a column): `received → converting → extracting_metadata → chunking → embedding → indexed` | `unsupported_type (501 stub)` | `rejected_oversize` | `dlq_parked` (embed-provider outage) | `failed`.
+
+### Note (P) — a Document with `source_type='note'`
+A user-authored knowledge unit with optional web-link enrichment (FR-001).
+- Additional fields on the Document row: `body` TEXT (user-authored; the **only** embedded/indexed content), `source_links[]` JSONB (attached URLs supplied as enrichment inputs), `citations[]` JSONB (`[{ url, title, fetched_at, content_hash }]`, metadata only — not embedded), `enrich_status` (`none`|`drafting`|`drafted`|`accepted`).
+- **Enrichment** (member-initiated, re-runnable): the enrich worker crawls `source_links`, distills each page aligned to `body`, and streams a draft. The draft is **never persisted** — it lives client-side until the member accepts. On accept, `body` + `citations[]` are persisted and the note follows the normal ingestion path (chunk → embed → indexed). Crawled pages are never embedded separately, keeping the persistent injection surface minimal (research §3).
+- A bare URL with no body creates a note whose draft body is the page summary, under the same accept gate.
 
 ### Chat Session (P)
 A member's conversational thread with remembered context. Partitioned by `HASH (user_id)`.

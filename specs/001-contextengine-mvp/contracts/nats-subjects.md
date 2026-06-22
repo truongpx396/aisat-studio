@@ -9,7 +9,8 @@
 | `ingestion.pdf.<workspace_id>` | BFF (S3 event) | Ingestion worker (Track A) | `{ doc_id, s3_key, workspace_id, user_id, tenant_id, access_level, scope, trace_id }` |
 | `ingestion.docx.<workspace_id>` | BFF (S3 event) | Ingestion worker (Track A) | same as above |
 | `ingestion.image.<workspace_id>` | BFF (S3 event) | Ingestion worker (Track B, captioning) | same as above |
-| `ingestion.crawl.<workspace_id>` | BFF (`/ingest/link`) | Ingestion worker (Track D, Crawl4AI) | `{ doc_id, url, workspace_id, user_id, tenant_id, access_level, scope, trace_id }` |
+| `ingestion.crawl.<workspace_id>` | Note-enrich worker | Ingestion worker (Track D, Crawl4AI) | `{ doc_id, url, workspace_id, user_id, tenant_id, access_level, scope, trace_id }` — **internal** fetch step of note enrichment (no longer a user-facing standalone-link path, FR-001) |
+| `enrich.note.<workspace_id>` | BFF (`POST /notes/{id}/enrich`) | Python enrich role | `{ stream_id, note_id, body, source_links[], workspace_id, user_id, effective_access_level, idem_key, trace_id }` — crawls `source_links` (SSRF-guarded), distills against `body`, streams a draft via the SSE relay; draft not persisted until the member accepts (FR-001) |
 | `ingestion.audio.<workspace_id>` | BFF (S3 event) | Stub consumer | Returns `501 Not Implemented` (Phase 1 stub, FR-003; Whisper transcription is the Phase 2 implementation) |
 | `ingestion.dlq.<workspace_id>` | Ingestion worker | Retry consumer / janitor | Parked chunks (e.g., embed-provider outage) for retry — never re-embedded with a different model (FR-029) |
 | `query.agent.<workspace_id>` | BFF (`/query`) | LangGraph worker pool | `{ stream_id, query, workspace_id, user_id, effective_access_level, session_id, intent_hint?, idem_key, trace_id }` |

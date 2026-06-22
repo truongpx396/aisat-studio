@@ -36,8 +36,11 @@
 | Method | Path | Purpose | Notes |
 |--------|------|---------|-------|
 | POST | `/ingest/presign` | Get presigned S3 PUT URL for a file | Validates `content_length` ≤ `max_upload_bytes` → `413 oversize` (FR-003, Clarification Q4). Body: `{ filename, content_type, content_length, access_level?, scope? }`. `access_level` must be ≤ caller clearance; defaults to caller clearance (FR-004). Unsupported types (video/audio) → `501 unsupported_type` (FR-003). |
-| POST | `/ingest/link` | Ingest a web page from a pasted URL | Publishes `ingestion.crawl.<ws>` (FR-001) |
-| POST | `/ingest/note` | Ingest a manual note | |
+| POST | `/notes` | Create a note (body + optional `source_links[]`); a bare URL with empty body is accepted and treated as a single source link | Body: `{ body?, source_links?[], access_level?, scope? }`. `access_level` ≤ caller clearance; defaults to caller clearance (FR-004, FR-001) |
+| POST | `/notes/{id}/enrich` | Run enrichment for a note (re-runnable) | Publishes `enrich.note.<ws>`; returns a `stream_id`. Checks credit balance at the boundary before publish (FR-001) |
+| GET | `/notes/{id}/enrich/{streamId}` (SSE) | Stream enrichment progress + draft | `status` stages: `fetching→distilling→drafting` → `token` deltas → `done`. Draft is not persisted (FR-001) |
+| POST | `/notes/{id}` (accept) | Persist the member-accepted note body + citations, then ingest | Sets `enrich_status=accepted`; enters the normal ingestion path (chunk→embed→indexed) |
+| POST | `/ingest/note` | Ingest a manual note (no enrichment) | |
 | GET | `/ingest/{jobId}/status` (SSE) | Real-time ingestion progress | `status` events: `received→converting→…→indexed`/`rejected_oversize`/`dlq_parked`/`failed` (FR-003) |
 
 ## Library
