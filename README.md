@@ -198,6 +198,8 @@ The Go BFF follows the **same one-image / many-roles** model as the Python tier 
 > > **Data-layer idempotency (`idem_key UNIQUE`) is the _only_ correctness guarantee. Leases, queue groups, and `SET NX` are throughput optimizations.**
 >
 > A lot of systems mistakenly treat a distributed lock or a leader election as their correctness boundary — then get burned when a lock TTL expires mid-operation, a GC pause outlives the lease, or a network partition elects two leaders. Here those primitives are explicitly demoted to **performance** (they stop most duplicate work *before* it hits the database), while the actual money-correctness lives in a **database constraint** that physically cannot admit a second row. So even in the worst case — two "leaders", an expired lock, a redelivered tick — the duplicate write is rejected by the ledger itself, not by a timing assumption. Correctness never depends on a clock or a quorum being healthy.
+>
+> This is exactly why scaling Redis to Sentinel/Cluster doesn't threaten correctness: a `SET NX` lock is **never safe under async-replication failover** (a primary can ACK the lock, die before replicating, and a promoted replica hands the same lock out twice), so the design **never trusts the lock — it puts the invariant in a DB constraint / conditional write (a fencing token)**. A two-leader window from a Redis failover therefore produces **zero** duplicate effects.
 
 #### SSE streaming flow
 
@@ -357,6 +359,47 @@ Access control is **structural**, enforced at multiple layers — not by trustin
 - **Prompt-injection defense** — disallowed/injection inputs are refused *before* retrieval or credit spend; retrieved documents are treated as inert reference material.
 
 These are aligned with **OWASP Top 10 (2025)** — see the repo-wide [security & OWASP instructions](.github/instructions/security-and-owasp.instructions.md).
+
+#### Authentication flow (OIDC + PKCE)
+
+Browser auth is **OIDC Authorization Code + PKCE (S256)** against **Casdoor**, which sits behind the swappable kernel `Auth` interface (interchangeable with `jwt.Auth` / `workos.Auth`). The BFF verifies the `id_token` via JWKS (`iss`/`aud`/`exp`, pinned algorithm), then issues its **own opaque session token** — a high-entropy random ID in an **HttpOnly · Secure · SameSite** cookie, backed by a **Redis** session record. The cookie carries **no claims** (never the provider token, never `localStorage`), is **revoked instantly** on logout/clearance-change by deleting the Redis key, and forces every request to re-read current role/clearance (so a demotion takes effect immediately). Each request resolves the Actor server-side and pushes tenant + identity into Postgres so **RLS** is the real access boundary:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Browser (SPA)
+    participant BFF as Go BFF<br/>/auth · middleware
+    participant CD as Casdoor<br/>(OIDC provider)
+    participant PG as Postgres (RLS)
+    participant RD as Redis<br/>state · session
+
+    Note over U,RD: Login — Authorization Code + PKCE, state = CSRF guard
+    U->>BFF: GET /auth/login (start)
+    BFF->>RD: store state + PKCE code_verifier
+    BFF-->>U: 302 → Casdoor /authorize (state, code_challenge=S256)
+    U->>CD: authenticate (pwd / MFA / SSO)
+    CD-->>U: 302 → /auth/callback?code&state
+    U->>BFF: GET /auth/callback?code&state
+    BFF->>RD: validate state (CSRF) · load code_verifier
+    BFF->>CD: POST /access_token (code, code_verifier)
+    CD-->>BFF: id_token + access_token
+    BFF->>BFF: verify id_token via JWKS · iss / aud / exp
+    BFF->>PG: upsert User · resolve Member (role, clearance)
+    BFF->>RD: create session record (user, workspace, role, clearance, csrf)
+    BFF-->>U: 302 → app · Set-Cookie opaque session_id (HttpOnly·Secure·SameSite)
+
+    Note over U,PG: Authenticated request — RLS resolution
+    U->>BFF: GET /documents · Cookie: session_id (opaque)
+    BFF->>RD: GET session:{hash(session_id)} → Actor
+    BFF->>PG: SET LOCAL app.workspace_id / app.user_id (RLS)
+    PG-->>BFF: rows the Actor is authorized to see
+    BFF-->>U: 200 { data }
+```
+
+- **Sign-up** requires a Cloudflare **Turnstile** token and fires `OnSignup` (seed demo doc + 1000-credit grant).
+- **Local agents** authenticate with a scoped device **PAT** (user+workspace, 90d, revocable) issued via `POST /devices/authorize`; `workspace_id` comes from the PAT, never the request body (FR-027).
+
+📐 Auth contract + sequences: [contracts/auth-flow.md](specs/001-contextengine-mvp/contracts/auth-flow.md) · OIDC sequence: [auth-oidc-sequence.excalidraw](specs/001-contextengine-mvp/diagrams/addition/auth-oidc-sequence.excalidraw) · device/PAT: [local-agent-flow.excalidraw](specs/001-contextengine-mvp/diagrams/addition/local-agent-flow.excalidraw)
 
 📐 Diagrams: [access-control-isolation](specs/001-contextengine-mvp/diagrams/addition/access-control-isolation.excalidraw) · [mcp-tool-allowlist](specs/001-contextengine-mvp/diagrams/addition/mcp-tool-allowlist.excalidraw) · [llm-gateway-chokepoint](specs/001-contextengine-mvp/diagrams/addition/llm-gateway-chokepoint.excalidraw)
 
@@ -603,7 +646,7 @@ Open `.excalidraw` files at [excalidraw.com](https://excalidraw.com) or with the
 - [data-model-er](specs/001-contextengine-mvp/diagrams/data-model-er.excalidraw) — entity-relationship model
 
 **Deep dives** ([diagrams/addition/](specs/001-contextengine-mvp/diagrams/addition/))
-- access-control-isolation · mcp-tool-allowlist · llm-gateway-chokepoint · billing-payment-flow · sse-streaming-sequence · nats-subject-topology · notification-flow · local-agent-flow
+- access-control-isolation · mcp-tool-allowlist · llm-gateway-chokepoint · auth-oidc-sequence · billing-payment-flow · sse-streaming-sequence · nats-subject-topology · notification-flow · local-agent-flow
 
 ---
 

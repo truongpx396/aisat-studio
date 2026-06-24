@@ -10,11 +10,14 @@
 
 ## Auth & identity (kernel)
 
+Browser auth is **OIDC Authorization Code + PKCE** against Casdoor (behind the kernel `Auth` interface); the session is an **opaque reference token** (HttpOnly/Secure/SameSite cookie) looked up in Redis — no claims on the wire, revocable instantly. Full sequence + invariants: [auth-flow.md](./auth-flow.md).
+
 | Method | Path | Purpose | Notes |
 |--------|------|---------|-------|
 | POST | `/auth/signup` | Create account + workspace | Turnstile token required (FR-020); fires `OnSignup` (demo doc + 1000 credit grant) |
-| POST | `/auth/login` | Password / magic-link login | Returns session JWT |
-| POST | `/auth/logout` | Invalidate session | |
+| GET | `/auth/login` | Begin OIDC login | Stores `state` + PKCE `code_verifier` (Redis); 302 → Casdoor `/authorize` |
+| GET | `/auth/callback` | OIDC redirect handler | Validates `state`, exchanges `code` + `code_verifier`, verifies `id_token` (JWKS, `iss`/`aud`/`exp`), creates Redis session + sets opaque session cookie |
+| POST | `/auth/logout` | Invalidate session | Deletes Redis session record + clears cookie (immediate revocation) |
 | POST | `/auth/password-reset` | Request/confirm reset | |
 
 ## Workspace & members

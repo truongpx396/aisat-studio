@@ -18,7 +18,7 @@ Technical approach: a three-runtime system — a Go BFF/gateway (kernel + agent 
 - Go: Gin (HTTP), GORM (Postgres), nats.go, go-redis, OpenTelemetry, zerolog, Sentry; `testcontainers-go` (containerized integration deps)
 - Python: FastAPI, LangGraph, Mem0, BAML, FastMCP, MarkItDown, Crawl4AI, qdrant-client, openai, cohere, structlog, Langfuse SDK; `testcontainers-python` (containerized integration deps)
 - Frontend: React 19, Vite, TypeScript, native EventSource/SSE client, PostHog (product analytics); Vitest (unit/component) + Playwright (cross-browser E2E)
-- Auth provider: Casdoor (`casdoor.Auth` implementation of the kernel `Auth` interface; swappable with `jwt.Auth`/`workos.Auth`)
+- Auth provider: Casdoor (`casdoor.Auth` implementation of the kernel `Auth` interface; swappable with `jwt.Auth`/`workos.Auth`). Browser sessions use **OIDC Authorization Code + PKCE**; the BFF issues an **opaque session token** (HttpOnly cookie, Redis-backed, instantly revocable). Local agents use scoped device PATs. Full sequences: [contracts/auth-flow.md](./contracts/auth-flow.md)
 - Edge/proxy: Caddy (reverse proxy, automatic TLS, static SPA serving) in front of the BFF
 - Eval stack: Promptfoo + DeepEval (prompt/LLM-output assertions) and Ragas (retrieval/RAG metrics) — Phase 1 wires a minimal subset behind `evals/run.py`; the full suite is Phase 2
 - Deferred (Phase 2): Whisper (audio transcription) — the `ingestion.audio` track is a `501` stub in Phase 1
