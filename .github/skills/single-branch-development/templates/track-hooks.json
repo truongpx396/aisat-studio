@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "./.github/hooks/track-guard.sh",
+        "powershell": "pwsh -File ./.github/hooks/track-guard.ps1",
+        "timeoutSec": 5
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "./.github/hooks/track-evidence.sh",
+        "timeoutSec": 5
+      },
+      {
+        "type": "command",
+        "bash": "./.github/hooks/track-meter.sh",
+        "timeoutSec": 5
+      }
+    ],
+    "subagentStart": [
+      {
+        "type": "command",
+        "bash": "./.github/hooks/track-trace.sh",
+        "timeoutSec": 5
+      }
+    ],
+    "subagentStop": [
+      {
+        "type": "command",
+        "bash": "./.github/hooks/track-trace.sh",
+        "timeoutSec": 5
+      }
+    ],
+    "stop": [
+      {
+        "type": "command",
+        "bash": "./.github/hooks/track-evidence-gate.sh",
+        "timeoutSec": 6
+      },
+      {
+        "type": "command",
+        "bash": "./.github/hooks/track-sentinel.sh",
+        "timeoutSec": 6
+      },
+      {
+        "type": "command",
+        "bash": "./.github/hooks/track-notify.sh",
+        "timeoutSec": 6
+      }
+    ]
+  }
+}
