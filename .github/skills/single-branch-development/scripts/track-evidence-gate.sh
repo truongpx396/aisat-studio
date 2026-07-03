@@ -103,9 +103,18 @@ required="$(printf '%s\n' $required | sed '/^$/d' | sort -u | tr '\n' ' ')"
 [ -f "$rec" ] ||
   block "Evidence gate: no run record at $rec yet. The diff requires evidence for:${required%% }. Run those checks and let them be captured before finishing."
 
-# Current code fingerprint — must match track-evidence.sh's computation exactly.
+# Current code fingerprint — must match track-evidence.sh's computation exactly
+# (HEAD + tracked diff + untracked non-ignored file names & content hashes).
 hash_cmd() { if command -v shasum >/dev/null 2>&1; then shasum; else sha1sum; fi; }
-current_fp="$({ git rev-parse HEAD 2>/dev/null || echo no-head; git diff HEAD 2>/dev/null || true; } | hash_cmd | cut -d' ' -f1)"
+current_fp="$({
+  git rev-parse HEAD 2>/dev/null || echo no-head
+  git diff HEAD 2>/dev/null || true
+  u="$(git ls-files --others --exclude-standard 2>/dev/null || true)"
+  if [ -n "$u" ]; then
+    printf '%s\n' "$u"
+    printf '%s\n' "$u" | git hash-object --stdin-paths 2>/dev/null || true
+  fi
+} | hash_cmd | cut -d' ' -f1)"
 
 # Generic failure markers; repos extend via TRACK_FAIL_PATTERN for stack specifics.
 fail_re="${TRACK_FAIL_PATTERN:-}"

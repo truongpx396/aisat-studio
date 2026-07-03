@@ -26,8 +26,9 @@
 #                           entry per kind. Patterns are repo-supplied, never baked in.
 #   RUNS_DIR                where run records live (default: runs)
 #
-# Each entry also stores a `fingerprint` (HEAD + tracked diff hash) so the gate can
-# tell evidence for the CURRENT tree from a stale green run captured edits ago.
+# Each entry also stores a `fingerprint` (HEAD + tracked diff + untracked content
+# hashes) so the gate can tell evidence for the CURRENT tree from a stale green run
+# captured edits ago.
 set -eufo pipefail
 
 [ -n "${RUN_ID:-}" ] || exit 0
@@ -63,10 +64,20 @@ fi
 resp="$(jq -r '.tool_response // empty' <<<"$input")"
 
 # Fingerprint of the code this evidence is for: HEAD + all tracked (staged+unstaged)
-# changes. Untracked new files are NOT captured — stage them to include. Must match
-# the identical computation in track-evidence-gate.sh.
+# changes + untracked (non-ignored) file names & content hashes. Including untracked
+# contents closes the hole where a brand-new unstaged file's later edits would leave
+# a stale green reading as fresh. Must match the identical computation in
+# track-evidence-gate.sh.
 hash_cmd() { if command -v shasum >/dev/null 2>&1; then shasum; else sha1sum; fi; }
-fingerprint="$({ git rev-parse HEAD 2>/dev/null || echo no-head; git diff HEAD 2>/dev/null || true; } | hash_cmd | cut -d' ' -f1)"
+fingerprint="$({
+  git rev-parse HEAD 2>/dev/null || echo no-head
+  git diff HEAD 2>/dev/null || true
+  u="$(git ls-files --others --exclude-standard 2>/dev/null || true)"
+  if [ -n "$u" ]; then
+    printf '%s\n' "$u"
+    printf '%s\n' "$u" | git hash-object --stdin-paths 2>/dev/null || true
+  fi
+} | hash_cmd | cut -d' ' -f1)"
 
 RUNS_DIR="${RUNS_DIR:-runs}"
 rec="$RUNS_DIR/$RUN_ID.json"

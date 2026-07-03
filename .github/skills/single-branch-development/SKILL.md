@@ -157,12 +157,14 @@ These are the **invariants** this skill asserts; most are *realized by* SDD's lo
   the draft-PR handoff, treat `TRACK_BASE_REF` (e.g. `main`/`origin/main`) as **required**, not
   optional, for the gate to stay meaningful.
 - **Gitignore `runs/` — this is correctness, not tidiness.** The evidence fingerprint is
-  `git rev-parse HEAD` + `git diff HEAD`, which only sees *tracked* files. If `runs/*.json` is
-  **tracked**, every evidence capture edits it, shifts the current fingerprint, and the gate reports
-  the *just-captured* evidence as **STALE** — you can never pass your own gate. And it must be
-  *ignored*, not merely untracked: reconcile's dirty check counts untracked-but-visible files
-  (`git ls-files --others --exclude-standard`), so a non-ignored `runs/*.dispatch` breadcrumb makes
-  the tree read **dirty** and gets stashed. Add `runs/` to `.gitignore` before the first run.
+  `git rev-parse HEAD` + `git diff HEAD` + the contents of every **untracked non-ignored** file
+  (`git ls-files --others --exclude-standard`, content-hashed). If `runs/*.json` is **tracked** *or*
+  merely **untracked-but-not-ignored**, every evidence capture writes it, shifts the current
+  fingerprint, and the gate reports the *just-captured* evidence as **STALE** — you can never pass
+  your own gate. Only when `runs/` is **ignored** does it drop out of the fingerprint (and out of
+  reconcile's dirty check, which also counts untracked-but-visible files), so a non-ignored
+  `runs/*.dispatch` breadcrumb both self-stales the gate and makes the tree read **dirty** and gets
+  stashed. Add `runs/` to `.gitignore` before the first run.
 - **Don't freeze entrypoints on a bootstrap branch.** Leave `TRACK_FROZEN_PATHS` unset while the
   entrypoints don't exist yet; enable strict frozen paths only once parallel tracks begin.
 - **The worker physically stops at `gh pr create --draft`.** Push/merge/force are denied by the
