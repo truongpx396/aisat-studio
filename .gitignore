@@ -242,3 +242,14 @@ secrets/
 credentials/
 
 draft-idea.md
+
+# ============================================================
+# single-branch-development hooks bundle (per-worktree, local)
+# ============================================================
+# Copied hook scripts + env presets live under .github/hooks/.
+# track-env.base.sh is the COMMITTED repo-wide preset (shared across every worktree).
+# track-env.sh is the LOCAL per-worktree override — never committed.
+.github/hooks/track-env.sh
+# Local run records + resume breadcrumbs (default RUNS_DIR). Keeping these out of
+# the tree also keeps them out of the evidence fingerprint (see references/hooks.md).
+runs/

@@ -86,6 +86,13 @@ With N workers in flight, durable state is non-negotiable — the model forgets,
 
 Grep any one surface → reconstruct the whole run.
 
+**Write each track's `goal` as a contract, not a wish.** The `goal` field below is the acceptance
+test the worker must pass before it may claim `success` — spell out four things so "done" means
+something gradable: the **end state** ("US1 ingest pipeline green per contracts", not "improve
+ingest"), the **evidence** required ("integration suite exits 0, output pasted"), the **constraints**
+that must hold ("do not edit frozen entrypoints; do not delete existing tests"), and the **budget**
+(the hard stops below). A goal with no evidence to fail against will always think it succeeded.
+
 **Run record (one per track, git-ignored `runs/` dir).** Each worker writes/updates
 `runs/<run-id>.json` — this is the trace anchor and the orchestrator's memory between ticks:
 ```json
@@ -189,10 +196,15 @@ Run all checks; proceed silently if all pass, else stop and ask the human with t
 
 - Working tree clean (`git status --porcelain` empty) and on the intended base branch.
 - `track-manifest.md` resolved and every requested track id exists in it.
-- Requested tracks have **non-overlapping** file ownership and migration ranges (cross-check the ownership map). Overlap → STOP, report the collision (it would only become a merge conflict later anyway).
+- Requested tracks have **non-overlapping** file ownership and migration ranges (cross-check the ownership map). Overlap → STOP, report the collision (it would only become a merge conflict later anyway). Make this mechanical with the bundled [`scripts/track-precheck.sh`](scripts/track-precheck.sh): pipe it a JSON array of `{id, prefixes}` (each track's `TRACK_ALLOWED_PREFIXES`) and it exits non-zero with the exact colliding prefix pair — the same string-prefix rule the guard enforces, so the precheck asserts on precisely what the workers will run.
 - Docker/host headroom ≥ requested concurrent tracks vs. the manifest cap. Over cap → propose reducing concurrency.
 - `gh` authenticated; remote reachable. `runs/` exists and is git-ignored.
 - Mint a run-id per requested track now (`<UTC-timestamp>_<track_id>`).
+- **Smoke ONE track end-to-end before fanning out the rest.** Run the first track through the full
+  pipeline (implement → verify → draft PR) as a single worker and watch it. The first real run
+  almost always exposes a missing check, a fuzzy ownership boundary, or a stop condition that needs
+  sharpening — far cheaper to catch on one track than to discover it replicated across N runaway
+  workers. Fan out the remaining tracks only after the smoke track reaches a clean `success`.
 
 ### 2. Create isolation (one per track)
 
@@ -210,9 +222,9 @@ Use `dispatching-parallel-agents` to launch one worker per track. Each worker ex
 two-stage review, evidence, and draft PR handoff).
 
 Pass each worker: run-id, task IDs, file-ownership scope, manifest commands, and project invariants.
-If bundled hooks are enabled, resolve each worker's env two-tier before launch — **per-track** vars
-(`TRACK_ALLOWED_PREFIXES`, `RUN_ID`) from the track's own `Tracks` row, **global** vars from the
-manifest Defaults/Commands/Hard-stops sections.
+If bundled hooks are enabled, resolve each worker's env two-tier before launch (per-track +
+global) exactly as [Deterministic enforcement](#deterministic-enforcement-via-copilot-agent-hooks)
+describes.
 
 This orchestrator then applies the stricter parallel-only overlays:
 
@@ -243,6 +255,8 @@ Workers never merge. Integration is serialized and chosen by your current
   lockfiles (`go mod tidy` / `uv lock`, never hand-merge) → full suite on the rebased tree → merge
   only if green. Never merge stacked PRs back-to-back without re-running the suite on each rebased tree.
 
+After a track's PR merges, tear down its isolation (`git worktree remove <path>` + delete the merged
+branch) so worktrees and per-track Docker namespaces don't accumulate across waves.
 ### 6. Stale-PR bounce (autonomous, to the owning worker)
 
 When merging one PR makes another stale, do NOT hand-fix. Re-dispatch the owning worker:
@@ -276,6 +290,8 @@ Start low; graduate only after weeks of clean runs.
 - **Lockfiles are derived** — regenerate, never hand-merge. The most common "conflict" is a no-op script, not a real merge.
 - **Frozen entrypoints** (`main.go` / `app.py`) must iterate a module registry; tracks self-register via their own files. Editing the entrypoint per track guarantees merge conflicts.
 - **Global budget > per-agent budget at N>1** — one runaway worker is cheap; ten are not. Enforce the fleet ceiling.
+- **Human review of MERGED code never leaves the loop** — no matter how good the adversarial verifier gets, "done" is still a claim, not a proof, and comprehension debt grows faster the more the fleet ships code you didn't write. The verifier gate lets you approve faster; it does not let you stop reading what landed on the default branch.
+- **Prefer CLIs over heavy MCP servers inside workers** — a single broad MCP can burn ~20k+ tokens of a worker's context before it does any work, and context bloat is a top cause of quality decay and cost blowups over a long run. Give workers named CLIs (self-documenting via `--help`, ~zero context) and reserve MCP for tools with no CLI equivalent.
 - **Cap concurrency to the manifest value** — Docker resource exhaustion shows up as flaky timeouts, misread as logic bugs.
 - **Overlapping ownership is a precheck failure, not a runtime surprise** — catch it in Step 1.
 - **Evidence, not assertion** — "all green" without pasted output is `NEEDS_CONTEXT`. The single most important gate.
@@ -294,6 +310,7 @@ Start low; graduate only after weeks of clean runs.
 ## References
 
 - `track-manifest.template.md` (bundled) — copy into a repo and fill per project.
+- [`scripts/track-precheck.sh`](scripts/track-precheck.sh) (bundled, parallel-only) — the mechanical Precheck overlap gate: reads a JSON array of `{id, prefixes}` on stdin, exits 0 when all tracks' ownership prefixes are mutually disjoint, or exit 2 with the exact colliding pair / config error (empty ownership, duplicate id). Run it in Step 1 before fan-out.
 - The Copilot agent-hook bundle is **owned by `single-branch-development`** ([`track-hooks.json`](../single-branch-development/templates/track-hooks.json) + [`scripts/track-*.sh`](../single-branch-development/scripts/)): `track-guard.sh` (PreToolUse ownership + push lockout), `track-evidence.sh` / `track-meter.sh` (PostToolUse evidence + tool-call ceiling), `track-trace.sh` (Subagent trace), `track-notify.sh` (Stop webhook). This orchestrator reuses it and layers per-track/global env on top.
 - [Copilot agent hooks (GitHub Docs)](https://docs.github.com/en/copilot/concepts/agents/hooks) · [Agent hooks in VS Code](https://code.visualstudio.com/docs/copilot/customization/hooks) · [Hooks reference (per-event I/O schema)](https://code.visualstudio.com/docs/agents/reference/hooks-reference) — events, JSON I/O, exit codes, Claude/CLI cross-compatibility.
 - Composes: `using-git-worktrees`, `dispatching-parallel-agents`, `single-branch-development`.

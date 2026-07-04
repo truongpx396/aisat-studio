@@ -40,7 +40,7 @@ exit code `2` (stderr → model) or `hookSpecificOutput.permissionDecision: "den
 | Resume / reconcile after interruption | `track-reconcile.sh` (`SessionStart`/`agentStart`) | **Read-only** preflight: from committed history + `runs/<RUN_ID>.json` only, emit `{head, dirty_worktree, evidence:{fresh,stale,missing,failed}, resumable}` at the current fingerprint — so a crashed/credit-out run resumes at the first not-done task and stashes untrusted uncommitted work, instead of the model guessing where it left off. Self-recovers `RUN_ID` from the `runs/<id>.dispatch` breadcrumb when none is exported. No-op unless a `RUN_ID` is set or recoverable. Mirrors `track-evidence-gate.sh`'s fingerprint logic exactly. |
 | Scope / never edit frozen entrypoints | `track-guard.sh` (`PreToolUse`) | **Deny** an edit whose target path is outside `TRACK_ALLOWED_PREFIXES` or hits a `TRACK_FROZEN_PATHS` entrypoint (deny-by-default, per worktree). |
 | Never hand-edit generated or applied artifacts | `track-guard.sh` (`PreToolUse`) | **Deny** edits to any file carrying a `GENERATED — DO NOT EDIT` banner (re-run the generator), and to already-committed files under `TRACK_IMMUTABLE_PREFIXES` (e.g. applied migrations — add a NEW file instead). A brand-new file under the prefix is allowed. |
-| No auto-merge from a worker | `track-guard.sh` (`PreToolUse`) | **Deny** `git push`, `gh pr merge`, `--force`, `--no-verify`, `git reset --hard` on terminal calls. Workers physically stop at `gh pr create --draft`. |
+| No auto-merge from a worker | `track-guard.sh` (`PreToolUse`) | **Deny** `git push`, `gh pr merge`, `--force`, `--no-verify`, `git reset --hard` on terminal calls. Workers physically stop at `gh pr create --draft`. Opt-in `TRACK_ALLOW_FF_PUSH=1` permits a plain fast-forward `git push` (for a PR-rework flow) while still denying `--force`/merge/`--no-verify`/`reset --hard`. |
 | No irreversible data/infra ops *(opt-in)* | `track-guard.sh` (`PreToolUse`) | When `TRACK_GUARD_DESTRUCTIVE` is set, **deny** `DROP`/`TRUNCATE`, unbounded `DELETE FROM` (no `WHERE`), Redis `FLUSHALL`/`FLUSHDB`, NATS stream/consumer teardown, and `rm -rf` on absolute/home paths. Stack-specific — tune the patterns. |
 | Evidence gate (recorded test output) | `track-evidence.sh` (`PostToolUse`) | Append `{kind, cmd, response, fingerprint}` for test commands into the run record — captured by the tool, not claimed by the model. `fingerprint` (HEAD + tracked diff + untracked non-ignored content hashes) ties each entry to the exact code it tested. **`tool_response` is textual, not a numeric exit code** (CI stays the pass/fail authority). |
 | Evidence pack complete + fresh *(opt-in)* | `track-evidence-gate.sh` (`Stop`) | The closing “missing rows = not done” assertion. The required-kind set is **diff-conditional**: `TRACK_EVIDENCE_RULES` (`glob:kind` pairs) selects kinds by the paths the branch touched — so a frontend-only diff needs `ts`, a migration diff needs `pg-explain` — unioned with the optional always-on floor `TRACK_REQUIRED_EVIDENCE`. **`decision:block`** unless every selected kind has an entry whose `fingerprint` matches the **current** tree and whose response shows no failure marker — reporting exactly which are MISSING / STALE / FAILING. Selection is mechanical glob-matching (no model call); no-ops when both vars are unset or the diff selects nothing. Honors `stop_hook_active`; failure markers extend via `TRACK_FAIL_PATTERN`. Mechanizes verification-before-completion; CI stays authoritative. |
@@ -53,7 +53,38 @@ exit code `2` (stderr → model) or `hookSpecificOutput.permissionDecision: "den
 
 Copy every [`../scripts/track-*.sh`](../scripts/) into the repo's `.github/hooks/` directory and
 place [`../templates/track-hooks.json`](../templates/track-hooks.json) there too. Each script is
-**opt-in and no-ops unless its env is set**, so dropping them in is safe before configuring anything:
+**opt-in and no-ops unless its env is set**, so dropping them in is safe before configuring anything.
+
+### Bootstrap (recommended): commit one repo preset, override per-worktree as needed
+
+Hand-exporting a dozen `TRACK_*` vars every run is the #1 footgun — a resume that forgets them runs
+**silently ungated** (guard off, evidence gate trivially passes). Instead, bind the config to a file
+the hooks auto-source. There are two layers, both living in `.github/hooks/` next to the scripts:
+
+```bash
+# 1. Repo-wide base — commit it once; it travels into every worktree automatically.
+cp .github/hooks/track-env.sh.example .github/hooks/track-env.base.sh   # from templates/track-env.sh.example
+$EDITOR .github/hooks/track-env.base.sh                                 # values common to the whole repo
+git add .github/hooks/track-env.base.sh && git commit                   # committed, shared across all tracks
+
+# 2. (Optional) per-worktree override — only when a branch must deviate from the base.
+cp .github/hooks/track-env.sh.example .github/hooks/track-env.sh        # gitignored, local to this worktree
+$EDITOR .github/hooks/track-env.sh                                      # just the vars that differ
+```
+
+Every `track-*.sh` **auto-sources both files sitting next to it** (right after `set -eufo pipefail`) —
+`track-env.sh` first, then `track-env.base.sh`. Because `track-env.base.sh` is committed, a fresh
+worktree (single-branch **or** a parallel track) already has it; nothing is copied at start. Every
+line uses `export VAR="${VAR:-default}"`, so precedence is **exported env > worktree `track-env.sh` >
+repo `track-env.base.sh` > script default**: a worktree override beats the repo base, and an
+orchestrator (`executing-parallel-tracks`) can still set per-track overrides on top of everything
+without editing a file, keeping the composition contract intact. `RUN_ID` is deliberately **not** in
+either preset — it's minted per run by `track-preflight.sh` and recovered from the breadcrumb on resume.
+
+### The vars (also settable manually)
+
+The preset just wraps these — export them directly instead if you prefer, or to override the preset
+for one run:
 
 ```bash
 export TRACK_ALLOWED_PREFIXES="src/feature:test/feature"   # guard: this branch's writable scope
@@ -67,13 +98,14 @@ export PREFLIGHT_REQUIRE_TOOLCHAIN="go,uv"                  # preflight: extra b
 export TRACK_IMMUTABLE_PREFIXES="migrations/"               # guard: committed files here are append-only
 export TRACK_GUARD_DESTRUCTIVE=1                            # guard: deny DROP/TRUNCATE/FLUSHALL/etc.
 export TRACK_SENTINEL=1                                     # Stop: scan staged diff for secrets/leftovers
-export TRACK_TEST_CMD_PATTERN="go test|uv run pytest|npm (run )?test"  # evidence
-export TRACK_EVIDENCE_KINDS="go-test:go test -race;py:uv run pytest;ts:tsc --noEmit"  # tag evidence by pack row
+export TRACK_TEST_CMD_PATTERN="go test|uv run pytest|npm (run )?test"  # evidence: SIMPLE mode — tag every matching test call as a single "test" kind. Use this OR TRACK_EVIDENCE_KINDS, not both: KINDS supersedes it with per-pack labels.
+export TRACK_EVIDENCE_KINDS="go-test:go test -race;py:uv run pytest;ts:tsc --noEmit"  # evidence: MULTI-KIND mode — tag by pack row (label:pattern). Labels here MUST match the kinds used in TRACK_EVIDENCE_RULES / TRACK_REQUIRED_EVIDENCE (preflight warns on any mismatch).
 export TRACK_EVIDENCE_RULES="*.go:go-test;*.py:py;*.tsx:ts;*.ts:ts;migrations/*:pg-explain"  # Stop gate: diff path → required kind
 export TRACK_REQUIRED_EVIDENCE=""             # Stop gate: kinds required on EVERY diff (floor); empty = rules-only
 export TRACK_BASE_REF="main"                  # Stop gate / reconcile: diff base. STRONGLY RECOMMENDED — without it, once work is COMMITTED the diff-vs-HEAD is empty so the gate requires nothing and silently passes (see Gotchas). Falls back to branch upstream, then HEAD-only.
 export TRACK_MAX_TOOL_CALLS=200                                       # tool-call ceiling
 export TRACK_NOTIFY_WEBHOOK="https://hooks.slack.com/services/..."     # notify
+export TRACK_ALLOW_FF_PUSH=1                   # guard: permit a plain (fast-forward) git push — for a PR-rework flow updating an existing PR branch. --force/merge/--no-verify/reset --hard STAY denied. Leave unset for the default push lockout (worker stops at the draft PR).
 ```
 
 **Hooks are defense-in-depth, not the final gate.** They are local and bypassable. Layer them:
@@ -91,10 +123,11 @@ hook *and* its env are set — launch without them and the run still works but r
 
 | Recorded | Field | Written on | Source |
 |---|---|---|---|
+| Schema version | `v` (integer, currently `1`) | first hook to touch the record | any writer — all seed the **same** canonical skeleton `{run_id, v, trace, evidence, tool_calls}` |
 | Tool-call count | `tool_calls` (running integer) | **every** `PostToolUse` | `track-meter.sh` — `+1` per call; halts at `TRACK_MAX_TOOL_CALLS` |
 | Subagent spawn/stop timeline | `trace[]` (`{t, kind, event, agent_id, agent_type}`) | `SubagentStart` / `SubagentStop` | `track-trace.sh` |
 | Test evidence | `evidence[]` (`{t, kind, cmd, response, fingerprint}`) | `PostToolUse` matching a **test** command only | `track-evidence.sh` |
-| Terminal state | `status` (`no-progress` / `blocked` / …) | on a hard stop | `track-meter.sh` / `track-evidence-gate.sh` |
+| Terminal state | `status` (`no-progress` only) | when the tool-call ceiling trips | `track-meter.sh` — the **only** hook that writes `status` |
 
 **Deliberately NOT recorded** (don't expect these in the file):
 
@@ -107,3 +140,7 @@ hook *and* its env are set — launch without them and the run still works but r
   edits) tick it but are not itemized. Only **test** commands land in `evidence[]`.
 - **`response` is textual, not an exit code.** `PostToolUse` exposes a (possibly truncated) text
   result, so CI — not the recorded string — remains the authoritative pass/fail.
+- **No `blocked`/`passed` status.** `track-evidence-gate.sh` enforces the Stop gate by **returning a
+  block decision + message**, not by stamping a field — so a blocked run leaves no `status` in the
+  record, and a passing gate is **silent** (no positive marker). Only `track-meter.sh` writes
+  `status:"no-progress"`. Treat "block" as a prompt/CI concern, not a recorded terminal state.
