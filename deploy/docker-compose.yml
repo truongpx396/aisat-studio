@@ -1,19 +1,19 @@
 # Local development only — not production
-version: "3.8"
+# Copy deploy/.env.example → deploy/.env and fill in credentials before running.
 
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: aisat
-      POSTGRES_PASSWORD: aisat
+      POSTGRES_USER: ${POSTGRES_USER:-aisat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set — see deploy/.env.example}
       POSTGRES_DB: aisat
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aisat -d aisat"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aisat} -d aisat"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,11 +22,15 @@ services:
 
   redis:
     image: redis:7-alpine
+    # volatile-lru: only evicts keys that have a TTL set.
+    # Session tokens and credit-balance keys must NOT have a TTL so they are
+    # never silently evicted. Expendable cache entries (semantic cache, rate
+    # counters) must be written with an explicit EXPIRE to be eligible.
     command: >
       redis-server
       --appendonly yes
       --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory-policy volatile-lru
     ports:
       - "6379:6379"
     volumes:
@@ -62,7 +66,8 @@ services:
       --max_payload 8MB
     ports:
       - "4222:4222"
-      - "8222:8222"
+      # Bind monitoring to localhost only — exposes JetStream stream/consumer metadata
+      - "127.0.0.1:8222:8222"
     volumes:
       - nats_data:/data
     healthcheck:
@@ -74,14 +79,14 @@ services:
       - default
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set — see deploy/.env.example}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set — see deploy/.env.example}
     volumes:
       - minio_data:/data
     healthcheck:
@@ -93,13 +98,19 @@ services:
       - default
 
   casdoor:
-    image: casbin/casdoor:latest
+    image: casbin/casdoor:v1.826.0
     ports:
       - "8088:8000"
     environment:
       RUNNING_IN_DOCKER: "true"
     volumes:
       - ./casdoor/app.conf:/conf/app.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
@@ -116,12 +127,18 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - postgres
-      - redis
-      - qdrant
-      - nats
-      - minio
-      - casdoor
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      casdoor:
+        condition: service_healthy
     networks:
       - default
 

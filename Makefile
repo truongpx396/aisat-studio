@@ -94,6 +94,6 @@ eval:
 ## ── Install ──────────────────────────────────────────────────────────────────
 
 install:
-	cd backend-go && go mod download
+	cd backend-go && go mod tidy
 	cd backend-python && uv sync --all-extras
 	cd frontend && npm install
