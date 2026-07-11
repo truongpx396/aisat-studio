@@ -114,8 +114,12 @@ Two sub-steps, in order:
    genuinely discovered a bug, that is story-mode work — land the fix separately.)
 
 Generation fans out exactly like scaffold/story RED: N read-only subagents each return one test file
-body as text; the controller (single writer) applies them. Then the safety net gets a full
-`requesting-code-review` pass and is **frozen**.
+body as text; the controller (single writer) applies them. **Each characterization-author subagent's
+brief carries the governance set** (see the SKILL Step-4 "governance is a maker obligation" rule) — the
+relevant constitution principles, the matching `.github/instructions/*`, and
+`security-and-owasp.instructions.md` for any trust-boundary surface being restructured — so the frozen
+safety net pins down the governed behavior, not just the happy path. Then the safety net gets a full
+`requesting-code-review` pass (re-applying the same governance as the checker) and is **frozen**.
 
 ### Step 3 — transform incrementally, and never go red
 

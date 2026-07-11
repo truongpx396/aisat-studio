@@ -1071,6 +1071,18 @@ else
   fail "struct: pr-body.md steers Asserted zone to tables + warns vs escaped backticks"
 fi
 
+# 10.17 — governance is pushed to the MAKER (fan-out), not only the checker/review
+STORY_MD="$SCRIPT_DIR/../references/story-mode.md"
+REFACTOR_MD="$SCRIPT_DIR/../references/refactor-mode.md"
+if grep -qi 'maker. obligation' "$SKILL_MD" 2>/dev/null \
+   && grep -qi 'maker obligation' "$SCAFFOLD_MD" 2>/dev/null \
+   && grep -qi 'maker obligation' "$STORY_MD" 2>/dev/null \
+   && grep -qi 'maker obligation' "$REFACTOR_MD" 2>/dev/null; then
+  pass "struct: governance brief pushed to fan-out makers in all three cores"
+else
+  fail "struct: governance brief pushed to fan-out makers in all three cores"
+fi
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------

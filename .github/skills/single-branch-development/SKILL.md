@@ -124,6 +124,21 @@ owns each step.
    `.github/instructions/*` whose `applyTo` globs match the changed files — and any trust-boundary
    change additionally applies `security-and-owasp.instructions.md`.
 
+   **Governance is a *maker* obligation, not just a checker backstop.** Before **any** fan-out (scaffold
+   generation, story RED authoring, refactor characterization), discover the applicable governance set
+   **once** and **embed it into every parallel subagent's brief**: (a) the project constitution's
+   relevant principles (`.specify/memory/constitution.md`, if present); (b) the `.github/instructions/*`
+   whose `applyTo` globs match the files that cluster will produce (e.g. `go` for a Go cluster,
+   `reactjs`/`state-management` for a frontend cluster, `python` for a Python cluster); and (c)
+   `security-and-owasp.instructions.md` for any cluster touching a trust boundary (deploy/secrets/
+   network/persistence). State in-brief that these are **binding**, so each maker satisfies them *while
+   generating* (pinned image tags, no committed default credentials, secure headers, strict type/lint,
+   parameterized queries) rather than discovering them at review. Applying governance at **both** ends
+   is deliberate defense-in-depth: the maker brief prevents the violation, the review catches whatever
+   slips through. Dispatching a fan-out subagent **without** its governance brief is a defect even if
+   the later review happens to catch the gap — that round-trip is exactly how a bootstrap PR ships
+   hardcoded credentials. All of this **no-ops only when those files genuinely don't exist.**
+
    *Self-reported trace (optional):* call [`scripts/track-note.sh`](scripts/track-note.sh)` skill
    <name>` at each core step and `track-note.sh loop <phase>` once per RED→GREEN→review cycle to append
    an ordered, provenance-tagged `skills[]` / `iterations` record. These are the model's **own claim**
@@ -164,12 +179,12 @@ owns each step.
 | 1 Preflight | `track-preflight.sh` (bundled) |
 | 2 Reconcile | `track-reconcile.sh` (bundled) |
 | 3 Isolate | `using-git-worktrees` |
-| 4 Core — **story** RED author | `dispatching-parallel-agents` |
+| 4 Core — **story** RED author | `dispatching-parallel-agents` (+ governance brief in each maker) |
 | 4 Core — **story** RED review + freeze | `requesting-code-review` + governance (constitution + matched `.github/instructions/*`) + `security-and-owasp` |
 | 4 Core — **story** incremental green | `subagent-driven-development` (→ `test-driven-development`, `requesting-code-review`) |
-| 4 Core — **refactor** pin-green + characterize | `dispatching-parallel-agents` + `requesting-code-review` |
+| 4 Core — **refactor** pin-green + characterize | `dispatching-parallel-agents` (+ governance brief in each maker) + `requesting-code-review` |
 | 4 Core — **refactor** incremental transform (keep green) | `subagent-driven-development` (+ governance + `security-and-owasp` on trust boundaries) |
-| 4 Core — **scaffold** generate | `dispatching-parallel-agents` |
+| 4 Core — **scaffold** generate | `dispatching-parallel-agents` (+ governance brief in each maker) |
 | 4 Core — **scaffold** review | `requesting-code-review` + governance (constitution — hard gate) |
 | 5–6 Converge & gate | `verification-before-completion` |
 | 8 Finish | draft PR — **overrides** `finishing-a-development-branch` |
@@ -195,7 +210,11 @@ Invariants this skill asserts; most are *realized by* SDD's loop, not re-run her
   `applyTo` globs match the changed files (e.g. `go` for `**/*.go`, `reactjs`/`state-management` for
   `**/*.tsx`), applied to the diff even when the reviewer didn't author the file. This is a
   prompt-level review invariant (no hook can read principle compliance) and **no-ops only when those
-  files genuinely don't exist**, never by omission.
+  files genuinely don't exist**, never by omission. The **same governance set is pushed upstream into
+  every fan-out maker subagent's brief** (scaffold Step 2 / story RED-author / refactor characterize),
+  so parallel generators follow the constitution + matched instructions *while authoring* — governance
+  therefore gates **both** the maker and the checker (defense-in-depth), and review is the backstop for
+  anything a maker missed, not the first place governance is consulted.
 - **Security review required** at stage 2 for trust-boundary changes: the `requesting-code-review`
   rubric is quality-only, so the reviewer must also apply `security-and-owasp.instructions.md` (the
   security leg of the governance gate above).

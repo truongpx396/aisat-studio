@@ -103,6 +103,19 @@ do not run tests, do not commit. That is why in-session parallelism is safe here
 mode's serial green phase — there is no shared mutable worktree during generation, so none of the
 single-index / whole-tree-fingerprint hazards apply. (See the SKILL Gotcha on in-session fan-out.)
 
+**Each subagent's brief must also carry the governance set** (see the SKILL Step-4 "governance is a
+maker obligation" rule). Along with the cluster's task text and design-doc context, embed: (a) the
+relevant **constitution** principles (`.specify/memory/constitution.md`, if present) — e.g. the
+kernel-cannot-import-product rule for a Go cluster; (b) the `.github/instructions/*` that match the
+files the cluster will produce — `go` for a Go cluster, `reactjs`/`state-management` for a frontend
+cluster, `python` for a Python cluster; and (c) `security-and-owasp.instructions.md` for any cluster
+touching a deploy/secrets/network surface (`docker-compose.yml`, a proxy config, a `.env` template).
+Tell the maker in-brief that these are **binding**: the config it returns must *already* satisfy them
+— pinned image tags (no `:latest`), no committed default credentials (env placeholders with a dev
+fallback), security headers on public-facing proxies, strict type/lint settings, coverage floors that
+match the constitution. Governance discovered only at Step 5 review is a bug you paid a round-trip for
+— it is the exact failure mode that ships hardcoded `POSTGRES_PASSWORD` in a bootstrap PR.
+
 **The fan-out unit is an independent domain (a disjoint-file cluster) — NOT one-per-file, and NOT
 one-per-task.** This is the same rule `dispatching-parallel-agents` states: *one agent per independent
 problem domain*, not per file. Two facts force this:

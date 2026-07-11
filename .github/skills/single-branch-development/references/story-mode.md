@@ -103,6 +103,14 @@ accepted only when the **whole group fails for the right reason** — a compile 
 assertion, or a genuine unmet expectation, **not** a typo or a missing import. "Red for the wrong
 reason" is a silent hole; assert real red before proceeding.
 
+**Each RED-author subagent's brief carries the governance set** (see the SKILL Step-4 "governance is a
+maker obligation" rule): the relevant **constitution** principles, the `.github/instructions/*` matching
+the files under test, and — because story-scope tests encode security behavior (access-scope, injection
+resistance, clearance) — `security-and-owasp.instructions.md`. The tests a maker writes must *assert* the
+governance criteria, not just happy-path behavior, so the frozen suite already pins them down before any
+implementation exists. This complements the Step-3 RED review, which re-applies the same governance as
+the checker backstop.
+
 ### Step 3 — review and FREEZE the tests before greening
 
 A batch of unreviewed tests is worse than no tests: it manufactures false confidence, and here the
