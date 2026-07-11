@@ -23,8 +23,9 @@
 #   tool.execution_start → data.arguments (tool call parameters)
 #   tool.execution_complete — only has a success flag, no output text in this format
 #
-# OPT-IN via env — no-op unless TRACK_TOKEN_ESTIMATE is set (and RUN_ID is set):
-#   TRACK_TOKEN_ESTIMATE  any non-empty value enables the hook
+# OPT-OUT via env — active by default (track-env.base.sh sets TRACK_TOKEN_ESTIMATE=1);
+# unset or set to empty to disable:
+#   TRACK_TOKEN_ESTIMATE  any non-empty value enables the hook (default: 1)
 #   RUN_ID                stable run-id for this worker (set by preflight --commit)
 #   RUNS_DIR              where run records live (default: runs)
 #
