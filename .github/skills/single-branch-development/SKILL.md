@@ -69,7 +69,10 @@ owns each step.
    `TRACK_ID` exists. No breadcrumb → **START**: mint `RUN_ID` = `<UTC-timestamp>_<track>`, check
    prerequisites, and on approval persist `runs/<RUN_ID>.dispatch`. Breadcrumb exists → **RESUME**
    that run automatically (there is no `--resume` flag). It prints a one-screen summary (Mode · Track
-   · Tasks · RUN_ID · Branch · Base ref · Prereqs) and the same as JSON. **The interactive confirm is
+   · Tasks · RUN_ID · Branch · Base ref · Prereqs) and the same as JSON. **Present that emitted summary
+   verbatim for approval — never re-type it into a hand-built table.** A re-rendered summary can drift
+   silently from what `--commit` actually stamps into the breadcrumb; the script's own output is the
+   single source of truth. **The interactive confirm is
    mandatory: STOP and get explicit human approval of this summary before Step 3 creates anything.**
    The only waiver is an explicitly-set `auto_confirm`/`--yes` (orchestrator runs only) — absent that
    flag, treat confirm as required, never skippable by default. A prerequisite failure hard-fails
@@ -93,6 +96,8 @@ owns each step.
    current fingerprint. Then: stash any `dirty_worktree` (untrusted, reversible — never `reset
    --hard`), skip every `fresh` kind, and resume at the first `missing`/`stale`/`failed` task.
    Doneness is mechanical (fingerprint match), never a judgement call. No-op on a clean, complete tree.
+   Running it by hand does **not** hang — it skips the stdin read on an interactive TTY (`[ -t 0 ]`),
+   so a `< /dev/null` redirect is optional.
 3. **Isolate** — run `using-git-worktrees` to place the work in an **isolated worktree**, using the
    **Branch** name from preflight's summary (an explicit `TRACK_BRANCH` if you set one, otherwise the
    track slug). **A dedicated worktree is the default and expected form of isolation** — the whole
@@ -122,8 +127,10 @@ owns each step.
    *Self-reported trace (optional):* call [`scripts/track-note.sh`](scripts/track-note.sh)` skill
    <name>` at each core step and `track-note.sh loop <phase>` once per RED→GREEN→review cycle to append
    an ordered, provenance-tagged `skills[]` / `iterations` record. These are the model's **own claim**
-   (`self_reported:true`), never hook-observed; skip them if you don't want a self-attested trace. See
-   [references/hooks.md](references/hooks.md) for the full mechanics.
+   (`self_reported:true`), never hook-observed; skip them if you don't want a self-attested trace. The
+   **mechanical** fields (`tool_calls`, `trace[]`, heartbeat) record automatically — preflight `--commit`
+   persists `RUN_ID` into the installed `track-env.sh`, so even a solo run populates the record with no
+   extra setup. See [references/hooks.md](references/hooks.md) for the full mechanics.
 5. **Freeze & verify-all** — once the last task's review passes, make **no further edits**, then run
    every required evidence kind (`go-test`, `pg`, `redis`, …) back-to-back so all captures share the
    **same** fingerprint. Any change after this — including a review-driven fix — invalidates the
@@ -137,7 +144,13 @@ owns each step.
    ones.
 8. **Draft-PR finish** — open a **draft** PR and stop. This **replaces** SDD's call to
    `finishing-a-development-branch`; the worker never reaches its merge menu. Integration/merge is
-   owned by repo process/CI. Once the PR is open, run `track-preflight.sh --complete` to stamp
+   owned by repo process/CI. **Build the PR body from [`templates/pr-body.md`](templates/pr-body.md):**
+   generate its **Auto** block with [`scripts/track-report.sh`](scripts/track-report.sh) (files changed +
+   size from the diff, evidence with fingerprints + pass/fail, `tool_calls` / `trace[]`, and any
+   self-reported `skills[]` / `iterations` — all rendered from `runs/<RUN_ID>.json` + the breadcrumb,
+   never re-typed), then author only the **Asserted** zone (compliance narrative, caveats, "after merge").
+   Keep the two zones visibly separate so a reviewer can tell a hook-verified fact from a model claim.
+   Once the PR is open, run `track-preflight.sh --complete` to stamp
    `completed_utc` + `duration_secs` (now − `created_utc`) onto the breadcrumb — write-once, the one
    deliberate boundary that knows the run's total wall-clock (a per-event hook never sees PR handoff).
 
@@ -210,6 +223,14 @@ Invariants this skill asserts; most are *realized by* SDD's loop, not re-run her
   worktree mechanism exists), and only after that decline is surfaced and acknowledged. Never silently
   downgrade worktree → branch-in-place because it "feels lighter." Verify with `git worktree list`:
   more than the primary entry means you isolated; a single entry means you did **not**.
+- **The guard scopes writes by the *worktree root*, and env lives where the agent runs.** `track-guard.sh`
+  resolves each write path against the git worktree it belongs to (`git rev-parse --show-toplevel`), not
+  `$PWD`, so `create_file`/`replace_string_in_file` into a **sibling** worktree are scope-checked normally
+  even when the agent stays rooted in the main checkout — no terminal-heredoc workaround needed. But the
+  hook still **sources `track-env.sh` from the checkout the agent process runs in**: set per-run overrides
+  (`TRACK_ALLOWED_PREFIXES`, and `TRACK_ALLOW_FF_PUSH=1` for a PR-rework push) in *that* checkout's
+  `.github/hooks/track-env.sh`, not the worktree's, or the guard won't see them. Simplest robust option:
+  re-root the workspace **into** the worktree so `$PWD`, file tools, and env all agree.
 - **Doneness is mechanical.** A task is done only when its evidence `fingerprint` matches the current
   tree. "All green" without pasted output is not done.
 - **Set `TRACK_BASE_REF` — it's required, not optional.** The gate derives "what changed" from the
@@ -224,6 +245,13 @@ Invariants this skill asserts; most are *realized by* SDD's loop, not re-run her
   preset — copy `templates/track-env.sh.example` → `.github/hooks/track-env.base.sh` — which
   travels into every worktree; add a gitignored `.github/hooks/track-env.sh` only to override a
   single worktree. Every hook auto-sources both. See [references/hooks.md](references/hooks.md#install).
+- **The run record self-activates in a solo run.** Preflight `--commit` persists `RUN_ID` as a managed
+  block in the installed `.github/hooks/track-env.sh` (retired at `--complete`), so `tool_calls` /
+  `trace[]` / heartbeat accrue with no ceiling and no manual export; `TRACK_MAX_TOOL_CALLS` only *adds*
+  the hard-stop. The write is gated on the installed-hooks marker (`track-env.base.sh`), so it never
+  touches the skill's `scripts/` source mirror. For **parallel tracks**, each worker must export its own
+  `RUN_ID` (the `${RUN_ID:-…}` form makes that exported value win over the persisted default) so writes
+  don't cross-attribute. Populate `skills[]` / `iterations` yourself via `track-note.sh` (Step 4).
 - **Don't freeze entrypoints on a bootstrap branch.** Leave `TRACK_FROZEN_PATHS` unset until parallel
   tracks begin and the entrypoints exist.
 - **The worker physically stops at `gh pr create --draft`.** Push/merge/force are denied by the guard.

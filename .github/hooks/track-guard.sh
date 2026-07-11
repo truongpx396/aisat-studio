@@ -68,6 +68,42 @@ deny() {
   exit 0
 }
 
+# Normalize a tool-supplied path to a path relative to the git worktree ROOT it
+# belongs to. Paths UNDER $PWD keep the fast legacy strip (the agent's own
+# checkout — the common case). Only paths OUTSIDE $PWD get git-toplevel
+# resolution: that is the case this fix exists for — the isolated work lives in a
+# SIBLING git worktree while the agent (and $PWD) stay rooted in the main
+# checkout, so a plain $PWD-strip would leave an absolute path that never matches
+# TRACK_ALLOWED_PREFIXES and every scoped write would be denied (fail-closed),
+# forcing ungoverned terminal-heredoc writes. create_file targets may not exist
+# yet, so we resolve via the deepest existing ancestor's toplevel; falls back to
+# the $PWD-strip when the path is outside any git worktree. Side effect: sets
+# GIT_WT_ROOT to the discovered root so the banner and immutable-history checks
+# target the right tree.
+GIT_WT_ROOT=""
+_git_relpath() {
+  p_in="$1"
+  GIT_WT_ROOT=""
+  case "$p_in" in
+    /*) ;;                                   # absolute → normalize below
+    *)  printf '%s' "$p_in"; return ;;       # already relative → no-op
+  esac
+  case "$p_in" in
+    "$PWD"/*)                                # under the agent's checkout → legacy strip
+      GIT_WT_ROOT="$PWD"; printf '%s' "${p_in#"$PWD"/}"; return ;;
+  esac
+  d="$p_in"                                  # outside $PWD → likely a sibling worktree
+  while [ ! -e "$d" ] && [ "$d" != "/" ] && [ -n "$d" ]; do d="${d%/*}"; done
+  [ -z "$d" ] && d="/"
+  root="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "$root" ]; then
+    GIT_WT_ROOT="$root"
+    printf '%s' "${p_in#"$root"/}"
+  else
+    printf '%s' "${p_in#"$PWD"/}"            # fallback: legacy behavior
+  fi
+}
+
 case "$tool" in
   create_file | replace_string_in_file | multi_replace_string_in_file | edit_notebook_file | Write | Edit | MultiEdit)
     # Collect every target path this edit touches, across surface variants.
@@ -81,7 +117,7 @@ case "$tool" in
 
     while IFS= read -r p; do
       [ -z "$p" ] && continue
-      rel="${p#"$PWD"/}"   # absolute (VS Code) -> workspace-relative; no-op if already relative
+      rel="$(_git_relpath "$p")"   # relative to the path's git worktree root (handles sibling worktrees)
 
       # Frozen entrypoints: never editable by any track (tracks self-register).
       saved_ifs="$IFS"; IFS=:
@@ -102,17 +138,20 @@ case "$tool" in
         deny "'$rel' is outside this track's ownership scope (set TRACK_ALLOWED_PREFIXES); editing it would become a merge conflict at integration"
 
       # Generated files are never hand-edited — re-run the generator (always-on).
-      if [ -f "$rel" ] && head -3 "$rel" 2>/dev/null | grep -q "GENERATED — DO NOT EDIT"; then
+      # Test the ORIGINAL path ($p), which resolves regardless of $PWD vs worktree.
+      if [ -f "$p" ] && head -3 "$p" 2>/dev/null | grep -q "GENERATED — DO NOT EDIT"; then
         deny "'$rel' is generated (carries a 'GENERATED — DO NOT EDIT' banner) — re-run its generator instead of editing it by hand"
       fi
 
       # Immutable prefixes: an already-committed file (e.g. an applied migration)
-      # is append-only. A brand-new file under the prefix is allowed.
+      # is append-only. A brand-new file under the prefix is allowed. Query the
+      # worktree the path lives in (GIT_WT_ROOT), not $PWD, so a sibling-worktree
+      # branch's history is checked — falling back to $PWD when root is unknown.
       saved_ifs="$IFS"; IFS=:
       for m in ${TRACK_IMMUTABLE_PREFIXES:-}; do
         case "$rel" in
           "$m"*)
-            if git log --oneline -1 -- "$rel" 2>/dev/null | grep -q .; then
+            if git -C "${GIT_WT_ROOT:-$PWD}" log --oneline -1 -- "$rel" 2>/dev/null | grep -q .; then
               IFS="$saved_ifs"
               deny "'$rel' is an already-committed artifact under an immutable prefix ($m) — create a NEW file instead of editing it"
             fi ;;

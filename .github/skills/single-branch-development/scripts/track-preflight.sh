@@ -204,6 +204,32 @@ if [ "$mode" = "commit" ]; then
         evidence_floor_set:($required_evidence != "")}' \
       > "$rec_dispatch"
   fi
+  # --- activate the run record for SOLO runs -------------------------------------
+  # The per-call recorder hooks (meter/trace/evidence/note) require RUN_ID in their
+  # env and otherwise no-op. In a solo run no orchestrator exports it, so the run
+  # record (tool_calls / trace[] / skills[] / heartbeat) would stay empty. Persist
+  # RUN_ID into the per-worktree track-env.sh that every hook sources, as an
+  # idempotent managed block that never touches operator scope lines. The
+  # ${RUN_ID:-...} form means an already-exported RUN_ID (e.g. an
+  # executing-parallel-tracks per-worker value) still wins. Guarded by the
+  # track-env.base.sh marker so this only ever fires inside a real INSTALLED hooks
+  # dir — never in the skill's scripts/ source mirror that unit tests run in-place.
+  _env_dir="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
+  if [ -f "$_env_dir/track-env.base.sh" ]; then
+    env_file="$_env_dir/track-env.sh"
+    _blk_begin="# >>> track-preflight RUN_ID (managed - do not edit) >>>"
+    _blk_end="# <<< track-preflight RUN_ID (managed - do not edit) <<<"
+    if [ -f "$env_file" ]; then
+      awk -v b="$_blk_begin" -v e="$_blk_end" '
+        $0==b {skip=1; next} skip && $0==e {skip=0; next} !skip {print}
+      ' "$env_file" > "$env_file.tmp" && mv "$env_file.tmp" "$env_file"
+    fi
+    {
+      printf '%s\n' "$_blk_begin"
+      printf 'export RUN_ID="${RUN_ID:-%s}"\n' "$run_id"
+      printf '%s\n' "$_blk_end"
+    } >> "$env_file"
+  fi
   printf '%s\n' "$run_id"
   exit 0
 fi
@@ -236,6 +262,20 @@ if [ "$mode" = "complete" ]; then
   tmp="$(mktemp)"
   jq --arg done "$now_utc" --argjson dur "$dur" \
     '.completed_utc = $done | .duration_secs = $dur' "$rec_dispatch" >"$tmp" && mv "$tmp" "$rec_dispatch"
+  # Retire the persisted RUN_ID activation block (written at --commit) so a finished
+  # run stops steering the recorder hooks and can't bleed into an unrelated later run.
+  # Same installed-hooks guard as --commit (skip the scripts/ source mirror).
+  _env_dir="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
+  if [ -f "$_env_dir/track-env.base.sh" ]; then
+    env_file="$_env_dir/track-env.sh"
+    _blk_begin="# >>> track-preflight RUN_ID (managed - do not edit) >>>"
+    _blk_end="# <<< track-preflight RUN_ID (managed - do not edit) <<<"
+    if [ -f "$env_file" ]; then
+      awk -v b="$_blk_begin" -v e="$_blk_end" '
+        $0==b {skip=1; next} skip && $0==e {skip=0; next} !skip {print}
+      ' "$env_file" > "$env_file.tmp" && mv "$env_file.tmp" "$env_file"
+    fi
+  fi
   printf '%s\n' "$run_id"
   exit 0
 fi

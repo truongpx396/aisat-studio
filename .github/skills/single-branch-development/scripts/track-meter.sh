@@ -26,7 +26,9 @@ if [ -f "$__env_dir/track-env.sh" ]; then . "$__env_dir/track-env.sh"; fi
 if [ -f "$__env_dir/track-env.base.sh" ]; then . "$__env_dir/track-env.base.sh"; fi
 unset __env_dir
 
-[ -n "${TRACK_MAX_TOOL_CALLS:-}" ] || exit 0
+# Need a run record to write into. The tool-call COUNTER + heartbeat below are always
+# on when RUN_ID is set — so even a SOLO run with no ceiling still captures tool_calls
+# and last_ts. The ceiling only ADDS the hard-stop enforcement when it is configured.
 [ -n "${RUN_ID:-}" ] || exit 0
 
 RUNS_DIR="${RUNS_DIR:-runs}"
@@ -45,7 +47,7 @@ tmp="$(mktemp)"
 jq --argjson n "$count" --arg t "$now_ts" \
   '.tool_calls = $n | .started_ts = (.started_ts // $t) | .last_ts = $t' "$rec" >"$tmp" && mv "$tmp" "$rec"
 
-if [ "$count" -gt "$TRACK_MAX_TOOL_CALLS" ]; then
+if [ -n "${TRACK_MAX_TOOL_CALLS:-}" ] && [ "$count" -gt "$TRACK_MAX_TOOL_CALLS" ]; then
   # Also record the terminal state for the orchestrator's summary.
   tmp2="$(mktemp)"
   jq '.status = "no-progress"' "$rec" >"$tmp2" && mv "$tmp2" "$rec"

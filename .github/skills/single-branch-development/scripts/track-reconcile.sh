@@ -27,6 +27,11 @@
 # branches on nothing tool-specific. Wire it at SessionStart / agentStart, or run it by
 # hand at the top of a resumed session.
 #
+# NOTE (manual runs): this script reads the hook payload from stdin. When stdin is
+# an interactive TTY (running it by hand) it SKIPS the read (see the `[ -t 0 ]`
+# guard below) so it never blocks waiting for Ctrl-D. A `< /dev/null` redirect is
+# therefore optional now; it was previously required to avoid an apparent hang.
+#
 # Requires: jq, git. Keep runtime < 5s.
 set -eufo pipefail
 
@@ -41,7 +46,12 @@ if [ -f "$__env_dir/track-env.sh" ]; then . "$__env_dir/track-env.sh"; fi
 if [ -f "$__env_dir/track-env.base.sh" ]; then . "$__env_dir/track-env.base.sh"; fi
 unset __env_dir
 
-input="$(cat 2>/dev/null || true)"
+# Read the hook payload from stdin — but only when stdin is NOT an interactive
+# TTY. A hook surface always pipes/closes stdin, so `cat` returns immediately
+# there. Run by hand in a terminal, an unguarded `cat` blocks on the TTY waiting
+# for Ctrl-D and looks like a hang; the [ -t 0 ] guard makes manual runs a no-op
+# without needing a `< /dev/null` redirect.
+if [ -t 0 ]; then input=""; else input="$(cat 2>/dev/null || true)"; fi
 
 RUNS_DIR="${RUNS_DIR:-runs}"
 
