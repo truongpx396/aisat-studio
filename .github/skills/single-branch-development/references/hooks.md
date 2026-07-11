@@ -47,7 +47,7 @@ exit code `2` (stderr → model) or `hookSpecificOutput.permissionDecision: "den
 | Tool-call counter + ceiling | `track-meter.sh` (`PostToolUse`) | Count tool calls into `tool_calls` and stamp the heartbeat on **every** call whenever `RUN_ID` is set (no ceiling required). When `TRACK_MAX_TOOL_CALLS` is *also* set, emit `continue:false` + set `status:no-progress` on trip. **Hook I/O carries no token/cost data**, so token/$ ceilings stay orchestrator-side. |
 | Activation trace | `track-trace.sh` (`SubagentStart`/`SubagentStop`) | Append a `trace` entry per subagent spawn/stop, capturing the agent name and — on `SubagentStart` — its one-line `agent_description` (the **reason** it was spawned) as `reason`; `SubagentStop` records a `stop_reason` instead. Field names are read across surfaces (`agent_type`/`agentName`, `agent_description`/`agentDescription`). The `Run-Id:` *commit trailer* is NOT set here — add it in the worker's commit command or a git `prepare-commit-msg` hook. |
 | Pre-handoff secret/leftover scan *(opt-in)* | `track-sentinel.sh` (`Stop`) | When `TRACK_SENTINEL` is set, scan the **staged diff** and `decision:block` if it finds a likely secret or debug leftover (`console.log`, `debugger`, `TODO(claude)`, `FIXME`). Honors `stop_hook_active` so it can't loop; patterns override via `TRACK_SECRET_PATTERN`/`TRACK_LEFTOVER_PATTERN`. Defense-in-depth — CI/secret-scanning stays authoritative. |
-| Completion notification | `track-notify.sh` (`Stop`) | `curl` the run's terminal state to `TRACK_NOTIFY_WEBHOOK`. Best-effort; never blocks or fails the session. |
+| Token usage estimate *(opt-in)* | `track-tokens.sh` (`Stop`) | When `TRACK_TOKEN_ESTIMATE` is set, parse the `transcript_path` from the Stop payload, extract all text (user/assistant/tool-request fields), count chars, and write `token_estimate` (chars÷4) + `token_estimate_chars` + `token_estimate_method` into the run record. OVERWRITES on each Stop (transcript is cumulative; adding would double-count). The estimate **undercounts** — it cannot see the hidden system prompt, injected tool-schema definitions, or cached-token discounts. Fully no-op when the opt-in var is unset. |
 
 ## Install
 
@@ -157,6 +157,7 @@ the **self-reported** fields (`skills[]`, `iterations`) still require the model 
 | **Self-reported** loop count | `iterations` (integer) + `iterations_self_reported:true` (+ optional `iteration_log[]`) | skill calls `track-note.sh loop …` once per RED→GREEN→review cycle | `track-note.sh` — asserted by the model; hooks never see a reasoning loop. `tool_calls` remains the only mechanical turns-proxy. |
 | Test evidence | `evidence[]` (`{t, kind, cmd, response, fingerprint}`) | `PostToolUse` matching a **test** command only | `track-evidence.sh` |
 | Terminal state | `status` (`no-progress` only) | when the tool-call ceiling trips | `track-meter.sh` — the **only** hook that writes `status` |
+| Token estimate *(opt-in)* | `token_estimate` (integer) + `token_estimate_chars` + `token_estimate_method` | once per `Stop`, **overwritten** each time | `track-tokens.sh` (enabled by `TRACK_TOKEN_ESTIMATE=1`) — chars÷4 heuristic off the transcript; undercounts system prompt + cached tokens; labelled as estimate so it can't be mistaken for billing data |
 
 **Deliberately NOT recorded** (don't expect these in the file):
 

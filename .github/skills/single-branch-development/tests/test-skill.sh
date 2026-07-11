@@ -31,8 +31,9 @@ TRACE="$SCRIPTS_DIR/track-trace.sh"
 NOTE="$SCRIPTS_DIR/track-note.sh"
 SENTINEL="$SCRIPTS_DIR/track-sentinel.sh"
 NOTIFY="$SCRIPTS_DIR/track-notify.sh"
+TOKENS="$SCRIPTS_DIR/track-tokens.sh"
 for s in "$GUARD" "$PREFLIGHT" "$RECONCILE" "$EVIDENCE" "$EVIDENCE_GATE" \
-         "$METER" "$TRACE" "$NOTE" "$SENTINEL" "$NOTIFY"; do
+         "$METER" "$TRACE" "$NOTE" "$SENTINEL" "$NOTIFY" "$TOKENS"; do
   [ -x "$s" ] || chmod +x "$s"
 done
 INSTALL_HOOKS="$SCRIPTS_DIR/install-hooks.sh"
@@ -658,6 +659,55 @@ RUN_ID="$NOTE_RID" RUNS_DIR="$NOTE_RUNS" bash "$NOTE" bogus >/dev/null 2>&1 \
   && fail "note: unknown subcommand -> non-zero exit" \
   || pass "note: unknown subcommand -> non-zero exit"
 rm -rf "$NOTE_RUNS"
+
+# ---------------------------------------------------------------------------
+# SUITE 9c -- track-tokens.sh (opt-in transcript token estimate)
+# ---------------------------------------------------------------------------
+section "track-tokens.sh"
+TOK_RUNS="$(mktemp -d)"; TOK_RID="tok-run"
+jq -nc '{"run_id":"'"$TOK_RID"'","v":1,"trace":[],"evidence":[],"tool_calls":0}' \
+  > "$TOK_RUNS/$TOK_RID.json"
+
+# Build a minimal transcript fixture with all three text-bearing record types.
+TOK_TX="$(mktemp)"
+printf '%s\n' \
+  '{"type":"user.message","data":{"content":"implement the auth handler"}}' \
+  '{"type":"assistant.message","data":{"content":"I will write the handler","reasoningText":"checking the spec","toolRequests":[{"name":"read_file","args":{"filePath":"auth.go"}}]}}' \
+  '{"type":"tool.execution_start","data":{"toolName":"read_file","toolCallId":"t1","arguments":{"filePath":"auth.go"}}}' \
+  '{"type":"tool.execution_complete","data":{"toolCallId":"t1","success":true}}' \
+  > "$TOK_TX"
+
+# With TRACK_TOKEN_ESTIMATE=1 it should write token_estimate to the record.
+printf '{"hook_event_name":"Stop","transcript_path":"%s"}' "$TOK_TX" | \
+  TRACK_TOKEN_ESTIMATE=1 RUN_ID="$TOK_RID" RUNS_DIR="$TOK_RUNS" bash "$TOKENS" >/dev/null 2>&1 || true
+if jq -e '.token_estimate > 0 and (.token_estimate_method | test("chars")) and (.token_estimate_chars > 0)' \
+     "$TOK_RUNS/$TOK_RID.json" >/dev/null 2>&1; then
+  pass "tokens: writes token_estimate + method with TRACK_TOKEN_ESTIMATE=1"
+else
+  fail "tokens: writes token_estimate + method with TRACK_TOKEN_ESTIMATE=1"
+fi
+
+# Overwrite behaviour: a second Stop call must OVERWRITE, not add, the estimate.
+est1="$(jq '.token_estimate' "$TOK_RUNS/$TOK_RID.json")"
+printf '{"hook_event_name":"Stop","transcript_path":"%s"}' "$TOK_TX" | \
+  TRACK_TOKEN_ESTIMATE=1 RUN_ID="$TOK_RID" RUNS_DIR="$TOK_RUNS" bash "$TOKENS" >/dev/null 2>&1 || true
+est2="$(jq '.token_estimate' "$TOK_RUNS/$TOK_RID.json")"
+[ "$est1" -eq "$est2" ] \
+  && pass "tokens: repeated Stop overwrites estimate (not additive)" \
+  || fail "tokens: repeated Stop overwrites estimate (not additive)"
+
+# No-op without TRACK_TOKEN_ESTIMATE (the field must not appear).
+jq -nc '{"run_id":"tok-off","v":1,"trace":[],"evidence":[],"tool_calls":0}' \
+  > "$TOK_RUNS/tok-off.json"
+printf '{"hook_event_name":"Stop","transcript_path":"%s"}' "$TOK_TX" | \
+  TRACK_TOKEN_ESTIMATE="" RUN_ID="tok-off" RUNS_DIR="$TOK_RUNS" bash "$TOKENS" >/dev/null 2>&1 || true
+if jq -e '.token_estimate == null' "$TOK_RUNS/tok-off.json" >/dev/null 2>&1; then
+  pass "tokens: no-op without TRACK_TOKEN_ESTIMATE"
+else
+  fail "tokens: no-op without TRACK_TOKEN_ESTIMATE"
+fi
+
+rm -rf "$TOK_RUNS" "$TOK_TX"
 
 # ---------------------------------------------------------------------------
 # SUITE 10 -- track-notify.sh

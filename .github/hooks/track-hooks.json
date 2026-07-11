@@ -49,6 +49,11 @@
       },
       {
         "type": "command",
+        "bash": "./.github/hooks/track-tokens.sh",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
         "bash": "./.github/hooks/track-sentinel.sh",
         "timeoutSec": 6
       },

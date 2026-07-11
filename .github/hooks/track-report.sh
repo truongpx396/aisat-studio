@@ -240,6 +240,11 @@ fi
 # Mechanical run stats.
 printf '\n#### Run stats (hook-observed)\n\n'
 printf -- '- **Tool calls:** %s\n' "${tool_calls:-0}"
+te="$(jq -r '.token_estimate // empty' "$rec" 2>/dev/null || true)"
+if [ -n "$te" ]; then
+  tm="$(jq -r '.token_estimate_method // ""' "$rec" 2>/dev/null || true)"
+  printf -- '- **Token estimate (rough):** ~%s  *(method: %s)*\n' "$te" "$tm"
+fi
 if [ -f "$rec" ] && [ "$(jq -r '.trace | length' "$rec" 2>/dev/null || echo 0)" -gt 0 ]; then
   printf -- '- **Subagent trace (in order):**\n'
   jq -r '.trace[] | "  - \(.t): \(.event) \(.agent_type // .agent_display_name // "") \((.agent_id // "") | if . == "" then "" else "(\(.))" end)\((.reason // "") | if . == "" then "" else " — why: \(.)" end)"' \
