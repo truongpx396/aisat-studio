@@ -341,7 +341,7 @@ implementing task are distinct IDs in different files/runtimes.
    every evidence kind on one fingerprint; the story's **Checkpoint** line is the Definition of Done.
 
 **Bugfix?** Same core at **N=1**, prefixed with `systematic-debugging`: reproduce and root-cause
-*first*, encode the diagnosis as the failing regression test (that's step 2's RED), then green it. It
+*first*, encode the diagnosis as the failing regression test (that's the RED batch), then green it. It
 is not a separate mode — diagnose before writing the fix so you green the cause, not a symptom.
 
 TDD is kept at story scope (via the RED batch); the two-stage review is kept (RED review up front +
@@ -377,7 +377,7 @@ mode *adds* behavior; refactor mode *touches* behavioral code but adds none.
    it is coupling, not a silent behavior edit.
 4. **Converge & verify-all** (`verification-before-completion`) — freeze, run the whole suite + every
    evidence kind on one fingerprint, and confirm the public contract is unchanged. Definition of Done:
-   **same behavior, clearer structure** — the suite that passed at Step 2 still passes, untouched.
+   **same behavior, clearer structure** — the suite that passed at pin-green still passes, untouched.
 
 TDD's red→green is replaced by keep-green (characterization + never-red transform); the two-stage
 review is kept (characterization review up front + per-step transform review, + security on trust

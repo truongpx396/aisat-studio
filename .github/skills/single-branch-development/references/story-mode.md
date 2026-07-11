@@ -138,8 +138,9 @@ Batching the *test authoring* up front (Step 2) is what aligns with the file lay
 
 ### Step 5 — converge on one fingerprint
 
-Identical to the universal bracket's Step 2b: once the last impl increment greens its subset, make **no
-further edits**, then run the whole story test suite plus every required evidence kind
+Identical to the universal bracket's freeze & verify-all (SKILL Step 5): once the last impl increment
+greens its subset, make **no further edits**, then run the whole story test suite plus every required
+evidence kind
 (`go-test`, `pg`, `redis`, browser E2E, …) back-to-back so all captures share one whole-tree
 fingerprint. The story's Definition of Done is its **Checkpoint** line (e.g. *"US1 fully functional —
 ingest … browsable library"*) realized as green output you paste, not assert.
@@ -153,7 +154,7 @@ ingest … browsable library"*) realized as green output you paste, not assert.
 | Green | Per task | **Incremental** — each impl task/cluster greens a subset of the frozen suite |
 | TDD | Per task, if the task says so | **At story scope** — the RED batch is the failing acceptance suite |
 | Security review | Per trust-boundary task | **On the RED suite up front** *and* per trust-boundary impl task |
-| Evidence | Per task, converged via Step 2b | Whole story suite + all kinds on one fingerprint (Step 5) |
+| Evidence | Per task, converged at freeze & verify-all | Whole story suite + all kinds on one fingerprint (Step 5) |
 | Preflight / isolation / run-log / hooks / draft-PR | — | **Identical (reused)** |
 
 ## When to use / when to refuse

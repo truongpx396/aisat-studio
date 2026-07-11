@@ -155,7 +155,7 @@ build all runtimes  +  lint  +  bring the stack up (health check)  →  paste ou
 Mechanically this reuses the existing evidence gate exactly once over the whole batch — the
 whole-tree fingerprint is *happy* here because there is a single converged tree, one evidence pack,
 one commit. (Contrast story mode, where per-increment captures must each converge on the final tree
-via Step 2b.)
+at freeze & verify-all.)
 
 ### Step 5 — one review, not two-stage
 
@@ -172,7 +172,7 @@ the batch.)
 | Execution | Serial: RED batch → incremental green | **Parallel generate (one agent per disjoint-file cluster)** → serial apply/land |
 | TDD (test-first) | Required — story-scoped RED batch | **Dropped** — nothing behavioral to test |
 | Review | RED review + per-increment spec/quality (+ security) | **One** whole-diff `requesting-code-review` |
-| Evidence | Whole story suite, converged via Step 2b/5 | **One** batch build/lint/bring-up capture — **kept** |
+| Evidence | Whole story suite, converged at freeze & verify-all | **One** batch build/lint/bring-up capture — **kept** |
 | Commit | One per increment | One (or few) for the batch |
 | Preflight / isolation / run-log / hooks / draft-PR | — | **Identical (reused)** |
 

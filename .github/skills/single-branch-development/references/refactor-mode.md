@@ -155,7 +155,7 @@ E2E, …) back-to-back so all captures share one whole-tree fingerprint. Refacto
 assertion the other modes don't need: **the public contract diff is empty** — no OpenAPI/proto/schema
 change, no changed exported signature that callers depend on (unless the caller update is itself part
 of the reviewed refactor). Definition of Done: **same behavior, clearer structure** — the suite that
-was green at Step 2 is still green, untouched.
+was green at pin-green (Step 2) is still green, untouched.
 
 ## What refactor mode changes vs. keeps
 
