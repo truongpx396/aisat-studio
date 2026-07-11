@@ -1062,13 +1062,14 @@ else
   fail "struct: SKILL.md Step 8 wires the compliance-warnings check"
 fi
 
-# 10.16 — pr-body.md steers the Asserted zone toward tables (Task→intent + compliance)
-if grep -qi 'Task | What it adds' "$PR_BODY_TMPL" 2>/dev/null \
+# 10.16 — pr-body.md steers the Asserted zone toward tables (Task→files→intent + compliance)
+if grep -qi 'Task | Files' "$PR_BODY_TMPL" 2>/dev/null \
+   && grep -qi 'What it adds' "$PR_BODY_TMPL" 2>/dev/null \
    && grep -qi 'How it.s enforced' "$PR_BODY_TMPL" 2>/dev/null \
    && grep -qi 'NEVER escaped' "$PR_BODY_TMPL" 2>/dev/null; then
-  pass "struct: pr-body.md steers Asserted zone to tables + warns vs escaped backticks"
+  pass "struct: pr-body.md steers Asserted zone to tables (Task→files→intent) + warns vs escaped backticks"
 else
-  fail "struct: pr-body.md steers Asserted zone to tables + warns vs escaped backticks"
+  fail "struct: pr-body.md steers Asserted zone to tables (Task→files→intent) + warns vs escaped backticks"
 fi
 
 # 10.17 — governance is pushed to the MAKER (fan-out), not only the checker/review

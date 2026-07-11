@@ -34,14 +34,19 @@
 ### Asserted — narrative & compliance (model claim, verify before trusting)
 
 #### What this adds
-<!-- Prefer a TASK → intent table over prose — it maps the diff back to the plan and reads far
-     better than a file-by-file list (the auto block already has the per-file/area breakdown).
-     One row per task (or per merged task cluster), naming only the headline artifact + intent. -->
-| Task | What it adds |
-|------|--------------|
-| {{T001}} | {{e.g. "three-runtime directory structure (backend-go / backend-python / frontend / deploy)"}} |
-| {{T002}} | {{e.g. "`backend-go/go.mod` — Go 1.23, Gin/GORM/NATS/Redis/OTel"}} |
-| {{T003+T009}} | {{merge tasks that share a file — e.g. "`pyproject.toml` deps + ruff/black config"}} |
+<!-- Prefer a TASK → files → intent table over prose — it maps the diff back to the plan and reads
+     far better than a flat file-by-file list (the auto block already has the per-file/area breakdown).
+     One row per task (or per merged task cluster). The "Files" column re-slices the diff BY TASK —
+     git cannot attribute a file to a task, so this column is a MODEL CLAIM (that is why it lives in
+     the Asserted zone, not the auto block). Mark each path's change type with a leading glyph:
+       ＋ created   ~ modified   － deleted   → renamed (old→new)
+     A file owned by two tasks (e.g. `pyproject.toml` = deps + lint) appears in the merged row, once.
+     In scaffold mode every file is ＋created, so the glyphs matter most in story/refactor mode. -->
+| Task | Files (＋new ~mod －del) | What it adds |
+|------|-------------------------|--------------|
+| {{T001}} | {{＋ backend-go/ ＋ backend-python/ ＋ frontend/ ＋ deploy/ (dirs)}} | {{three-runtime directory structure}} |
+| {{T002}} | {{＋ `backend-go/go.mod`}} | {{Go 1.23 — Gin/GORM/NATS/Redis/OTel}} |
+| {{T003+T009}} | {{＋ `backend-python/pyproject.toml`}} | {{deps + ruff/black config (one file, two tasks)}} |
 
 #### Compliance
 <!-- A TABLE of assertions, each citing the enforcing mechanism (a lint rule, a test, a config)
