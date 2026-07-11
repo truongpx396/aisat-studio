@@ -191,9 +191,13 @@ bash .github/hooks/track-report.sh --json     # same facts as a JSON object, for
 
 It emits an **Auto block** (files changed + `--shortstat` from the `TRACK_BASE_REF` diff; `evidence[]`
 as a fingerprint + pass/fail table; `tool_calls`; the `trace[]` subagent order; and — under a clearly
-separate *self-reported* heading — `skills[]` / `iterations`). It is **read-only**: it never mutates
-the record, the tree, or git. The **narrative half** (constitution/OWASP compliance, caveats, "after
-merge") is a model *assertion* and is authored by hand into [`templates/pr-body.md`](../templates/pr-body.md),
+separate *self-reported* heading — `skills[]` / `iterations`). It also emits a **Compliance warnings**
+section: if the record shows an *empty evidence pack* or *no `requesting-code-review` activation*, it
+prints a ⚠️ for each (also surfaced as a `warnings[]` array in `--json`) so a skipped Step-5 review or
+an un-captured verification is visible in the PR body itself rather than in a later audit — the one
+mechanical backstop for the two gaps a hook cannot otherwise observe. It is **read-only**: it never
+mutates the record, the tree, or git. The **narrative half** (constitution/OWASP compliance, caveats,
+"after merge") is a model *assertion* and is authored by hand into [`templates/pr-body.md`](../templates/pr-body.md),
 whose `{{AUTO_BLOCK}}` placeholder is where the script's output goes. Keeping machine-rendered facts
 and model claims in two visibly separate zones is the same discipline the record applies with
 `self_reported:true`.

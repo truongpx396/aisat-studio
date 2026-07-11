@@ -135,6 +135,32 @@ discipline, not an optimization to trade away: generation is delegated to the su
 is the controller's sole job. A converged tree that the controller authored itself is a scaffold-mode
 violation even though it "looks the same."
 
+### Step 3a — generate ONLY the task-declared surface (no speculative structure)
+
+Both the subagents (Step 2) and the controller (Step 3) are bounded by the **files and directories the
+batched tasks explicitly name** — nothing more. A scaffold task that says *"create
+`backend-go/{cmd/api,kernel,internal,migrations,tests}`"* declares **those** directories; it does **not**
+license pre-creating the entire downstream architecture (every future `internal/<domain>/{dto,errors,
+infra,model,service}`, every kernel port, every `cmd/<x>`) that later stages' tasks will introduce.
+Materializing that speculative tree — typically as a blast of one `.gitkeep` per anticipated leaf —
+is a scope breach: it drags dozens of empty directories for **unreached tasks** into a bootstrap PR,
+front-runs design decisions that belong to those later tasks, and buries the real scaffold in noise.
+
+Two rules keep the batch contained:
+
+- **Subagents (Step 2):** return only the files each batched task's text names. Do not invent directories
+  for tasks outside the batch, and do not "round up" a named parent (`internal/`) to its imagined
+  children. If a task genuinely needs an *empty* directory to exist (Git cannot track an empty dir),
+  represent it with **exactly one** `.gitkeep` **in that task-named directory only** — never a recursive
+  spray across a tree the task did not enumerate.
+- **Controller (Step 3):** before applying, diff the returned path set against the batch's declared
+  surface. **Reject or trim any path outside it** — an out-of-scope path is a generation error, not a
+  head start. A `.gitkeep` count that dwarfs the number of directories the tasks actually name is the
+  tell-tale sign the fan-out over-reached; trim back to the declared surface before committing.
+
+Rule of thumb: the scaffold PR should contain the batch's real files plus the *minimum* set of empty
+directories those tasks name — not a materialized map of the whole future codebase.
+
 ### Step 4 — batch evidence via `verification-before-completion` (do NOT skip)
 
 Scaffold mode drops per-task TDD and per-task review, but it **keeps one `verification-before-completion`

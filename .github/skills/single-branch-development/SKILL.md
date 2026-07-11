@@ -150,7 +150,10 @@ owns each step.
    self-reported `skills[]` / `iterations` — all rendered from `runs/<RUN_ID>.json` + the breadcrumb,
    never re-typed), then author only the **Asserted** zone (compliance narrative, caveats, "after merge").
    Keep the two zones visibly separate so a reviewer can tell a hook-verified fact from a model claim.
-   Once the PR is open, run `track-preflight.sh --complete` to stamp
+   The Auto block ends with a **Compliance warnings** section: if `track-report.sh` flags a *missing
+   `requesting-code-review` activation* or an *empty evidence pack*, that gap is real — resolve it (run
+   the Step-5 review / capture the evidence) or explicitly acknowledge the waiver in the Asserted zone.
+   **Never open a draft PR with an unaddressed ⚠️.** Once the PR is open, run `track-preflight.sh --complete` to stamp
    `completed_utc` + `duration_secs` (now − `created_utc`) onto the breadcrumb — write-once, the one
    deliberate boundary that knows the run's total wall-clock (a per-event hook never sees PR handoff).
 
@@ -268,6 +271,21 @@ Invariants this skill asserts; most are *realized by* SDD's loop, not re-run her
   the only writer" means it is **only** a writer, never the generator. Read
   [`references/scaffold-mode.md`](references/scaffold-mode.md) **before** executing Step 4 — the SKILL
   body is only a summary; the mode reference is the binding spec.
+- **Scaffold generates only the task-declared surface — no speculative structure.** A scaffold task
+  names specific directories (e.g. `backend-go/{cmd/api,kernel,internal,migrations,tests}`); it does
+  **not** license pre-building the whole future architecture that *later* tasks introduce (every
+  `internal/<domain>/{dto,errors,infra,model,service}`, every kernel port, every `cmd/<x>`). The
+  tell-tale failure is a blast of one `.gitkeep` per anticipated leaf — dozens of empty dirs for
+  unreached tasks flooding a bootstrap PR. Subagents return only the files their task names; for an
+  empty dir a task *does* name, use **one** `.gitkeep` in that dir only; the controller trims any
+  returned path outside the batch's declared surface before committing. (Full rule:
+  [`references/scaffold-mode.md`](references/scaffold-mode.md) Step 3a.)
+- **Report state from command output, not intent.** Never announce that a commit, push, or PR
+  "exists" / "is opened" until the command that creates it has *returned successfully* — run `git push`
+  then `gh pr create --draft`, and read the branch/PR URL from **their** output. Saying "draft PR
+  opened" right after a bare `git push` (trusting a remote auto-link) is the exact
+  `verification-before-completion` failure this pipeline exists to prevent: the artifact you claimed may
+  not exist. Step 8 is not done until `gh pr create --draft` prints a PR URL.
 - **Never green a frozen test by weakening it (story) or editing behavior (refactor).** A deleted
   assertion, loosened matcher, `skip`-ped case, or a behavioral/contract test rewritten to pass is a
   false green in every mode. A genuinely wrong test routes back through its review gate; characterization

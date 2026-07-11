@@ -829,6 +829,89 @@ if cmp -s "$RPT_REPO/runs/$RID.json" "$RPT_REPO/runs/$RID.json"; then
 fi
 rm -rf "$RPT_REPO"
 
+# 10b.9/10 — compliance warnings surface silent omissions (empty evidence / no review)
+RPT_W="$(mktemp -d)"
+(
+  cd "$RPT_W" && git init -q && git config user.email t@t && git config user.name t
+  echo x > f.txt && git add f.txt && git commit -q -m init
+  mkdir -p runs
+  # (a) bare record: no evidence, no code-review activation -> BOTH warnings fire
+  printf '{"run_id":"R-bare"}\n' > runs/R-bare.dispatch
+  printf '{"run_id":"R-bare","v":1,"tool_calls":1,"evidence":[],"skills":[]}\n' > runs/R-bare.json
+  # (b) complete record: evidence + a requesting-code-review activation -> NO warnings
+  printf '{"run_id":"R-ok"}\n' > runs/R-ok.dispatch
+  cat > runs/R-ok.json <<JSON
+{"run_id":"R-ok","v":1,"tool_calls":1,
+ "evidence":[{"kind":"go-test","cmd":"go test ./...","response":"ok","fingerprint":"f1"}],
+ "skills":[{"t":"t","skill":"requesting-code-review","step":"review","self_reported":true}]}
+JSON
+)
+W_BARE="$(cd "$RPT_W" && TRACK_BASE_REF=HEAD RUNS_DIR=runs bash "$REPORT" R-bare 2>&1 || true)"
+W_BARE_J="$(cd "$RPT_W" && RUNS_DIR=runs bash "$REPORT" --json R-bare 2>/dev/null || true)"
+W_OK="$(cd "$RPT_W" && TRACK_BASE_REF=HEAD RUNS_DIR=runs bash "$REPORT" R-ok 2>&1 || true)"
+
+# 10b.9 — bare record warns about BOTH missing evidence and missing review
+if printf '%s' "$W_BARE" | grep -qi 'Compliance warnings' \
+   && printf '%s' "$W_BARE" | grep -qi 'evidence gate ran on an empty pack' \
+   && printf '%s' "$W_BARE" | grep -qi 'may have been skipped'; then
+  pass "report: flags empty evidence + missing review as compliance warnings"
+else
+  fail "report: flags empty evidence + missing review as compliance warnings"
+fi
+
+# 10b.9b — --json exposes the warnings[] array
+if printf '%s' "$W_BARE_J" | jq -e '(.warnings | length) == 2' >/dev/null 2>&1; then
+  pass "report: --json exposes warnings[] array"
+else
+  fail "report: --json exposes warnings[] array"
+fi
+
+# 10b.10 — a record WITH review activation + evidence produces NO warnings
+if printf '%s' "$W_OK" | grep -qi 'A code-review activation and at least one evidence row' \
+   && ! printf '%s' "$W_OK" | grep -qi 'may have been skipped'; then
+  pass "report: no compliance warnings when review + evidence are on record"
+else
+  fail "report: no compliance warnings when review + evidence are on record"
+fi
+rm -rf "$RPT_W"
+
+# 10b.11/12 — files-changed grouping: many files → area summary + collapsible list;
+#             few files → a plain per-file table (no <details>).
+RPT_G="$(mktemp -d)"
+(
+  cd "$RPT_G" && git init -q && git config user.email t@t && git config user.name t
+  git commit -q --allow-empty -m base
+  # 15 files across 3 areas (> default threshold of 12) → grouped
+  for d in alpha beta gamma; do
+    mkdir -p "$d"
+    for i in 1 2 3 4 5; do echo x > "$d/f$i.txt"; done
+  done
+  git add -A && git commit -q -m many
+)
+RPT_MANY="$(cd "$RPT_G" && TRACK_BASE_REF=HEAD~1 RUNS_DIR=runs bash "$REPORT" R-none 2>&1 || true)"
+
+# 10b.11 — area summary table present, with per-area counts, + a collapsible full list
+if printf '%s' "$RPT_MANY" | grep -qE '\| Area \| Files \| Changes \|' \
+   && printf '%s' "$RPT_MANY" | grep -qE '`alpha/` \| 5' \
+   && printf '%s' "$RPT_MANY" | grep -qi '<details><summary>All 15 files'; then
+  pass "report: many files grouped by area + collapsible full list"
+else
+  fail "report: many files grouped by area + collapsible full list"
+fi
+
+# 10b.12 — a small diff stays a plain per-file table (no area grouping, no <details>)
+(
+  cd "$RPT_G" && echo y > alpha/f1.txt && git add -A && git commit -q -m small
+)
+RPT_FEW="$(cd "$RPT_G" && TRACK_BASE_REF=HEAD~1 RUNS_DIR=runs bash "$REPORT" R-none 2>&1 || true)"
+if printf '%s' "$RPT_FEW" | grep -qE '\| File \| Change \|' \
+   && ! printf '%s' "$RPT_FEW" | grep -qi '<details'; then
+  pass "report: small diff renders a plain per-file table (no grouping)"
+else
+  fail "report: small diff renders a plain per-file table (no grouping)"
+fi
+rm -rf "$RPT_G"
+
 # ---------------------------------------------------------------------------
 # SUITE 11 -- SKILL.md + track-hooks.json structural integrity
 # ---------------------------------------------------------------------------
@@ -952,6 +1035,40 @@ if grep -q 'track-report.sh' "$SKILL_MD" 2>/dev/null \
   pass "struct: SKILL.md Step 8 references track-report.sh + pr-body.md"
 else
   fail "struct: SKILL.md Step 8 references track-report.sh + pr-body.md"
+fi
+
+# 10.13 — scaffold-mode.md guards against speculative structure (the .gitkeep-sprawl fix)
+SCAFFOLD_MD="$SCRIPT_DIR/../references/scaffold-mode.md"
+if grep -qi 'speculative structure' "$SCAFFOLD_MD" 2>/dev/null \
+   && grep -qi 'task-declared surface' "$SCAFFOLD_MD" 2>/dev/null \
+   && grep -qi '\.gitkeep' "$SCAFFOLD_MD" 2>/dev/null; then
+  pass "struct: scaffold-mode.md guards against speculative structure / .gitkeep sprawl"
+else
+  fail "struct: scaffold-mode.md guards against speculative structure / .gitkeep sprawl"
+fi
+
+# 10.14 — SKILL.md gotchas cover speculative-structure + report-from-output
+if grep -qi 'no speculative structure' "$SKILL_MD" 2>/dev/null \
+   && grep -qi 'Report state from command output' "$SKILL_MD" 2>/dev/null; then
+  pass "struct: SKILL.md gotchas cover speculative-structure + narration-before-action"
+else
+  fail "struct: SKILL.md gotchas cover speculative-structure + narration-before-action"
+fi
+
+# 10.15 — SKILL.md Step 8 wires the compliance-warnings gate
+if grep -qi 'Compliance warnings' "$SKILL_MD" 2>/dev/null; then
+  pass "struct: SKILL.md Step 8 wires the compliance-warnings check"
+else
+  fail "struct: SKILL.md Step 8 wires the compliance-warnings check"
+fi
+
+# 10.16 — pr-body.md steers the Asserted zone toward tables (Task→intent + compliance)
+if grep -qi 'Task | What it adds' "$PR_BODY_TMPL" 2>/dev/null \
+   && grep -qi 'How it.s enforced' "$PR_BODY_TMPL" 2>/dev/null \
+   && grep -qi 'NEVER escaped' "$PR_BODY_TMPL" 2>/dev/null; then
+  pass "struct: pr-body.md steers Asserted zone to tables + warns vs escaped backticks"
+else
+  fail "struct: pr-body.md steers Asserted zone to tables + warns vs escaped backticks"
 fi
 
 # ---------------------------------------------------------------------------
