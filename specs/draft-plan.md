@@ -10,8 +10,8 @@ preserved in one place for later phase planning. Nothing here is scheduled or im
 it is design intent to be revisited when the corresponding phase is planned.
 
 > **Phase map:** Phase 1 = Core App · **Phase 2 = Evaluation Suite (+ Headroom eval) &
-> Billing/Payments** · Phase 3 = Automated security red-teaming · **Phase 4 = Scale &
-> Resilience Hardening**.
+> Billing/Payments & AI Response Rating & Workspace Mind Map** · Phase 3 = Automated
+> security red-teaming · **Phase 4 = Scale & Resilience Hardening**.
 
 The Phase 1 spec, plan, research, data-model, contracts, and tasks remain the source of
 truth for what ships now — see [specs/001-contextengine-mvp/spec.md](./001-contextengine-mvp/spec.md)
@@ -217,6 +217,328 @@ Selection of the active provider(s) is a kernel `Flags`/config concern (e.g., `b
 
 ---
 
+## Phase 2 — AI Response Rating (Thumbs Up / Down)
+
+**Status**: Draft / not started · **Added**: 2026-07-20
+
+### Problem & intent
+
+Phase 1 generates cited answers but has no signal on whether those answers were
+useful. A lightweight per-response thumbs-up / thumbs-down rating closes that
+loop: it feeds the eval pipeline (Phase 2 Ragas/DeepEval), surfaces systematic
+retrieval or generation gaps, and gives the admin dashboard a human-quality
+signal alongside the automated metrics.
+
+Core rules:
+- A rating is **per message turn** (one LLM answer), tied to the `llm_call_log`
+  row for that turn. It does not replace automated evaluation — it complements it.
+- Only the **user who received the answer** can rate it (no cross-user voting).
+- Ratings are **workspace-scoped and RLS-protected** — a member in workspace A
+  never sees feedback from workspace B.
+- The same turn can be re-rated (last write wins); **no forced comment**. An
+  optional free-text reason field (max 500 chars) is offered only on dislike.
+- No gamification, no per-user score, no visible counts to other members.
+- Rating data is **append-only for audit**; a re-rating inserts a new row and
+  sets the previous row `superseded_at`.
+
+### Data model
+
+#### `response_ratings` (P) — new table
+
+Anchors to the existing `llm_call_log` (Phase 1) row for the rated turn.
+Partitioned by `created_at` (same convention as the parent table).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID v7 PK | |
+| `workspace_id` | UUID NOT NULL | RLS column — `SET LOCAL app.workspace_id` enforced |
+| `user_id` | UUID NOT NULL | Only the session owner may insert |
+| `llm_call_log_id` | UUID NOT NULL | FK → `llm_call_log.id`; the specific answer turn |
+| `chat_session_id` | UUID NULL | FK → `chat_session.id`; denormalised for easier session-level aggregation |
+| `rating` | SMALLINT NOT NULL | `1` = thumbs up · `-1` = thumbs down |
+| `reason` | TEXT NULL | Optional free-text (≤ 500 chars); only surfaced on dislike |
+| `superseded_at` | TIMESTAMPTZ NULL | Set when a newer rating supersedes this row |
+| `created_at` | TIMESTAMPTZ NOT NULL | Partition key |
+
+Indexes: `(workspace_id, llm_call_log_id, user_id)` for "my active rating for turn X"; `(workspace_id, created_at)` for admin time-range queries.
+
+RLS policy: `workspace_id = current_setting('app.workspace_id')::uuid` (same as all other tenant tables).
+
+#### Materialized view: `response_rating_daily` (P)
+
+Aggregates for the admin quality dashboard (mirrors the `llm_cost_daily` view pattern from Phase 1):
+
+```sql
+SELECT
+  workspace_id,
+  date_trunc('day', created_at) AS day,
+  COUNT(*) FILTER (WHERE rating = 1)  AS thumbs_up,
+  COUNT(*) FILTER (WHERE rating = -1) AS thumbs_down,
+  ROUND(COUNT(*) FILTER (WHERE rating = 1)::numeric
+      / NULLIF(COUNT(*), 0) * 100, 1) AS satisfaction_pct
+FROM response_ratings
+WHERE superseded_at IS NULL
+GROUP BY 1, 2;
+```
+
+`REFRESH MATERIALIZED VIEW CONCURRENTLY` triggered by the existing
+`usage.matview.refresh` NATS tick in the `cmd/worker` role — no new
+scheduler required.
+
+### REST contract additions (BFF)
+
+| Method | Path | Purpose | Notes |
+|--------|------|---------|-------|
+| `POST` | `/chat/sessions/{sessionId}/messages/{llmCallLogId}/rating` | Submit or update a rating | Body `{ rating: 1 \| -1, reason?: string }`. Authenticated; `workspace_id` from session. Returns `204`. Inserts a row and marks previous one `superseded_at = now()`. |
+| `GET` | `/chat/sessions/{sessionId}/messages/{llmCallLogId}/rating` | Get the caller's current rating | Returns `{ rating, reason, created_at }` or `null`. Used to restore the thumbs state on re-open. |
+| `GET` | `/admin/quality/ratings` | Workspace-level satisfaction metrics | Paginated, date-range filterable; returns daily `response_rating_daily` rows. Admin-only. |
+
+Errors:
+- `403` if `user_id` in session ≠ caller (can't rate someone else's answer).
+- `422` if `reason` exceeds 500 chars.
+- `404` if `llm_call_log_id` not found or not in the caller's workspace (prevents IDOR — resolve via join on `workspace_id`, not raw ID lookup).
+
+### Phase 1 seam (no changes required)
+
+`llm_call_log` already has `id`, `workspace_id`, `user_id`, `trace_id` — the
+exact columns needed to join. No schema migration is needed in Phase 1; the
+`response_ratings` table is an **additive** new table in Phase 2.
+
+The Phase 1 SSE `done` event already carries the `trace_id` to the client,
+which lets the SPA correlate a displayed answer with its `llm_call_log_id`
+for the rating call.
+
+### Eval pipeline integration
+
+- Phase 2 Ragas evaluation runs automatically compare automated retrieval/
+  faithfulness scores with human thumbs signals for the same turns.
+- Disliked turns with `reason` text become a **seeded eval dataset** (negative
+  examples) for prompt regression testing (Promptfoo/DeepEval).
+- Admin dashboard gains a **"Satisfaction" card** alongside the existing
+  cost/usage cards; an alert fires when `satisfaction_pct` drops below a
+  configurable threshold.
+
+### Security checklist
+
+- [ ] **AZ3 (IDOR)** `llm_call_log_id` resolved via `workspace_id` join — never
+      by raw ID.
+- [ ] **AZ1** `POST` endpoint requires authenticated session; `user_id` from
+      session cookie, never request body.
+- [ ] **FE8 / AZ4** `rating` value validated server-side to `1 | -1` (smallint
+      range); `reason` clamped to 500 chars.
+- [ ] **L2** `reason` text is user content — never logged raw; stored only in DB
+      under RLS.
+
+### Open decisions
+
+1. **Expose aggregate thumbs counts in the chat UI?** (e.g. "12 👍 for this
+   answer type") — probably not for Phase 2; keep it admin-only to avoid
+   anchoring bias.
+2. **Rate individual cited chunks vs. the whole answer?** Per-chunk rating is
+   richer for retrieval eval but significantly more complex UX. Defer to a
+   later iteration; the schema can be extended with `chunk_id NULL` without
+   breaking existing rows.
+3. **Export to Langfuse?** Human feedback can be pushed as a Langfuse score
+   via the existing OTel integration. Evaluate after Phase 2 eval pipeline
+   is wired.
+
+---
+
+## Phase 2 — Workspace Knowledge Mind Map
+
+**Status**: Draft / not started · **Added**: 2026-07-20
+
+### Problem & intent
+
+Members ask good questions in chat, but there is no way to see the *shape* of
+the workspace's knowledge — what topics exist, how documents and notes relate,
+where the dense clusters and the gaps are. A workspace knowledge mind map
+provides an exploratory, non-linear view of the library: starting from a seed
+(a topic string, a document, or a note), the system generates a graph of related
+nodes sourced directly from the workspace, with every edge backed by a real
+retrieval result or an explicit relationship, never fabricated.
+
+Core rules:
+- **No hallucinated edges.** Every relationship is sourced from a retrieval
+  result (shared concepts / cited entities), a shared tag, or an explicit
+  user-drawn link. The system states its confidence and source for each edge.
+- **Access-scoped, always.** The map runs the same RLS + Qdrant
+  payload-filter stack as chat: a member only sees nodes they are cleared for
+  (`access_level ≤ effective_clearance`). A node that exists but is out of scope
+  is omitted, not shown as a locked node, to avoid leaking its existence
+  (SC-001 invariant).
+- **Additive, not destructive.** Generating or refreshing a map never modifies
+  any document, note, or tag — it is a read-only derived view.
+- **Lazy expansion.** The initial map renders only the seed and its K nearest
+  neighbours (default K=8). Each node can be individually expanded. This keeps
+  first-render latency acceptable and avoids dumping the whole workspace at once.
+- **Credit-metered.** Each expansion call deducts credits like a chat query
+  (uses the same `billing.deduct` path and `llm_call_log` row). First render
+  is cheaper (retrieval-only, no generation); enriched label generation costs
+  more.
+
+### User stories
+
+| ID | Story |
+|----|-------|
+| MMP-01 | As a member, I can open a "Mind Map" view from a document or note and see related workspace knowledge. |
+| MMP-02 | As a member, I can click any node to expand it to its own neighbours. |
+| MMP-03 | As a member, I can click any node or edge to jump to the source document / cited passage. |
+| MMP-04 | As a member, I can search a topic and generate a map seeded from that query. |
+| MMP-05 | As a member, I can save a map layout (node positions + expansion state) to revisit later. |
+| MMP-06 | As an admin, I can see workspace-level entity/topic clustering maps for knowledge-gap auditing. |
+
+### Architecture
+
+The mind map is a **read-path feature** built on existing Phase 1 retrieval
+infrastructure. No new ML models are required.
+
+#### Generation pipeline (Python `query.*` worker — additive graph node)
+
+```
+seed (query string or document id)
+    │
+    ▼
+[Retrieve] hybrid search (BM25/SPLADE + dense, same as chat Node 3)
+    │  top-K documents / chunks, with scores + metadata
+    ▼
+[Cluster] lightweight entity / concept extraction
+    │  NER or KeyBERT on retrieved chunks → extract named entities / topics
+    │  Group by shared entity to form candidate edges
+    ▼
+[Score edges] cosine similarity between chunk embeddings
+    │  Keep edges where similarity ≥ threshold (configurable, default 0.65)
+    │  Discard edges that cross access_level boundaries
+    ▼
+[Label] (optional, flag-gated) LLM call via `fast` alias
+    │  Generate a short relationship label for each edge (e.g. "cites", "extends", "contradicts")
+    │  Costs credits; skipped when flag disabled or budget exhausted
+    ▼
+MindMapResult { nodes[], edges[], seed, access_level_used, credits_spent }
+```
+
+This pipeline runs as a **new LangGraph sub-graph** (a `mindmap` intent) that
+reuses the existing `search` and `lookup` MCP tools — no new MCP tools needed
+in the common case. The `fast` alias for label generation is the same gateway
+alias as the semantic cache warm-up, keeping cost low.
+
+#### New NATS subject
+
+| Subject | Publisher | Consumer | Payload |
+|---------|-----------|----------|---------|
+| `query.mindmap.<workspace_id>` | BFF (via existing `POST /query` with `intent=mindmap`) | Python `query.*` worker (mindmap sub-graph) | `{ workspace_id, user_id, seed_type: "doc"|"note"|"query", seed_id?: uuid, seed_text?: string, depth: int, k: int, label_edges: bool, stream_id, trace_id }` |
+
+Reuses the existing SSE streaming path — the client opens a `GET /query/{streamId}`
+SSE stream and receives incremental `mindmap_node` and `mindmap_edge` events as
+they are discovered, so the map renders progressively rather than waiting for the
+full result.
+
+#### New SSE events (additive to [sse-events.md](./001-contextengine-mvp/contracts/sse-events.md))
+
+| Event type | Payload | Notes |
+|------------|---------|-------|
+| `mindmap_node` | `{ id, label, type: "document"\|"note"\|"topic", doc_id?, source_url?, access_level, score }` | Streamed incrementally; one event per discovered node |
+| `mindmap_edge` | `{ source_id, target_id, label?, weight, evidence_count }` | Streamed after the two endpoint nodes are emitted |
+| `mindmap_done` | `{ node_count, edge_count, credits_spent, trace_id }` | Terminal event; mirrors `done` from chat |
+
+#### New REST endpoints (additive to [bff-rest.md](./001-contextengine-mvp/contracts/bff-rest.md))
+
+| Method | Path | Purpose | Notes |
+|--------|------|---------|-------|
+| `POST` | `/mindmap` | Start a mind map stream | Body `{ seed_type, seed_id?, seed_text?, depth?, k?, label_edges? }`. Returns `{ stream_id }`. Same flow as `POST /query`. |
+| `GET` | `/mindmap/layouts` | List saved map layouts | Paginated; workspace-scoped. |
+| `POST` | `/mindmap/layouts` | Save a layout | Body `{ name, seed, nodes_state: json, edges_state: json }`. |
+| `GET` | `/mindmap/layouts/{id}` | Load a saved layout | Returns node positions + last-known graph; marks stale if any source doc updated since save. |
+| `DELETE` | `/mindmap/layouts/{id}` | Delete a saved layout | Owner or admin only. |
+
+### Data model
+
+#### `mindmap_layouts` (P) — new table
+
+Persists user-saved map layouts (node positions, expansion state). The live
+graph data is **not** stored — it is regenerated on demand so it always reflects
+current workspace content. Only the layout (positions + user annotations) is saved.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID v7 PK | |
+| `workspace_id` | UUID NOT NULL | RLS column |
+| `user_id` | UUID NOT NULL | Owner |
+| `name` | TEXT NOT NULL | User-chosen label |
+| `seed_type` | TEXT NOT NULL | `doc` \| `note` \| `query` |
+| `seed_id` | UUID NULL | Source doc/note id if seed_type ≠ query |
+| `seed_text` | TEXT NULL | Query string if seed_type = query |
+| `nodes_state` | JSONB NOT NULL | `{ [node_id]: { x, y, expanded } }` |
+| `edges_state` | JSONB NOT NULL | `{ [edge_key]: { hidden } }` |
+| `created_at` | TIMESTAMPTZ NOT NULL | |
+| `updated_at` | TIMESTAMPTZ NOT NULL | |
+
+RLS policy: same pattern — `workspace_id = current_setting('app.workspace_id')::uuid`.
+
+### Phase 1 seams (no changes required)
+
+- **Qdrant hybrid search** already runs per-workspace with payload filters — the
+  mindmap pipeline calls it with the same pre-filter and clearance check.
+- **`POST /query` + SSE streaming** already exists — `intent=mindmap` is a new
+  dispatch branch in the existing policy chain, not a new endpoint. The `stream_id`
+  / SSE flow is unchanged.
+- **`llm_call_log`** row is written for any label-generation LLM call — the
+  same credit metering / audit trail applies automatically.
+- **`billing.deduct`** subject is published by the Python worker exactly as in
+  chat — no new billing wiring.
+
+### Frontend
+
+The map is rendered in a dedicated **Library → Mind Map** tab (alongside the
+existing Library list/grid views). Recommended library: **React Flow** (MIT) or
+**Cytoscape.js** — both handle large graphs with zoom/pan/expand. The map view
+should:
+- Show node type via icon (📄 document, 📝 note, 🏷️ topic/entity).
+- Show edge weight via line thickness; edge label on hover.
+- On node click → open the source document or note in the side panel.
+- On edge click → show the evidence snippet(s) that produced the relationship.
+- Toolbar: **Expand**, **Collapse subtree**, **Save layout**, **Export as PNG/SVG**.
+- Debug panel (consistent with Phase 1 chat debug): show retrieval scores,
+  edge similarity thresholds, and credits spent for the current map.
+
+### Performance constraints
+
+- **First render ≤ 3 s** for a depth-1 map (K=8, no label generation) on a
+  warm Qdrant index.
+- **Progressive streaming** — first node appears within 500 ms of the SSE
+  connection opening.
+- **Max nodes per session** capped at 200 (configurable per workspace via
+  `agent_policies`). Beyond cap, the UI shows a "zoom in to a subtopic" prompt
+  rather than expanding further.
+
+### Security checklist
+
+- [ ] **AZ3 (IDOR)** `seed_id` resolved via `workspace_id` join — never raw ID.
+- [ ] **SC-001** Qdrant pre-filter + RLS enforced on every node; out-of-scope
+      nodes are omitted, not shown locked.
+- [ ] **AZ1** `POST /mindmap` requires authenticated session; workspace from cookie.
+- [ ] **SC-007** Prompt injection in `seed_text` goes through the same input
+      validation as `POST /query` — reject / sanitize before embedding.
+- [ ] **L2** `seed_text` is user content; not logged raw. `reason`/content fields
+      from retrieved chunks not logged beyond the existing `result_hash` pattern.
+
+### Open decisions
+
+1. **Cross-workspace maps for admins?** An org-level admin who can see multiple
+   workspaces might want a cross-workspace map. Defer — requires a new
+   "org-admin" clearance concept not in Phase 1.
+2. **Collaborative maps?** Real-time multi-user map editing (like Figma
+   multiplayer). Out of scope for Phase 2; the `nodes_state` JSONB column is
+   intentionally layout-only to keep this option open without over-engineering.
+3. **Entity extraction model:** KeyBERT is fast and zero-shot; a fine-tuned NER
+   model gives better precision on domain jargon. Start with KeyBERT behind a
+   flag; replace if quality signals from `response_ratings` suggest retrieval
+   edges are poor.
+4. **Export formats:** PNG/SVG export is a nice-to-have. Markdown export
+   (hierarchical bullet list from the graph) is cheap and useful for note-taking.
+
+---
+
 ## Phase 4 Scalability and Resilience Hardening
 
 **Original title**: Phase 4 Notes — Scalability & Resilience Hardening
@@ -361,3 +683,5 @@ before high-concurrency production load.
   ([data-model.md](./001-contextengine-mvp/data-model.md)).
 - These items add **horizontal scale + HA + operational hardening** on top of
   that foundation; they do not change the Phase 1 contracts.
+
+
