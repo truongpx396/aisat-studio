@@ -6,7 +6,7 @@
 
 ---
 
-**Project:** AISAT-STUDIO
+**Project:** AISAT-INTEL
 **Generated:** 2026-06-12 14:47:16
 **Category:** Developer Tool / IDE
 

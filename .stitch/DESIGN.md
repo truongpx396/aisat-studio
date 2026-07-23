@@ -1,5 +1,5 @@
 ---
-name: AISAT-STUDIO Dark Console
+name: AISAT-INTEL Dark Console
 colors:
   background: '#0F172A'
   on-background: '#F8FAFC'
@@ -103,7 +103,7 @@ spacing:
 
 ## Brand & Style
 
-AISAT-STUDIO is an AI-powered shared second brain for work teams — a developer-
+AISAT-INTEL is an AI-powered shared second brain for work teams — a developer-
 and operator-facing product where every architectural pattern (retrieval tiers,
 access filtering, credit metering, provider fallback) must be *observable and
 named*. The personality is **technical, precise, and trustworthy**: a dark "code

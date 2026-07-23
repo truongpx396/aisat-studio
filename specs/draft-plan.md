@@ -1,4 +1,4 @@
-# AISAT-STUDIO — Draft Plan: Later-Phase Design Notes (Phase 2+)
+# AISAT-INTEL — Draft Plan: Later-Phase Design Notes (Phase 2+)
 
 **Status**: Holding document for review · **Scope**: Phase 2 and later
 
@@ -11,8 +11,18 @@ it is design intent to be revisited when the corresponding phase is planned.
 
 > **Phase map:** Phase 1 = Core App · **Phase 2 = Evaluation Suite (+ Headroom eval) &
 > Billing/Payments & AI Response Rating & Workspace Mind Map & Enterprise Knowledge
-> Layer** · Phase 3 = Automated security red-teaming · **Phase 4 = Scale & Resilience
-> Hardening**.
+> Layer & Tenancy/Delegated Admin & Agent Access** · **Phase 3 = Trust & Knowledge Health
+> — agent orientation, knowledge health, enterprise compliance, the expression layer,
+> and automated security red-teaming** · **Phase 4 = Scale & Resilience Hardening**.
+
+> **How Phase 2 and Phase 3 divide.** Phase 2 builds the enterprise **substrate**: typed
+> artifacts, a provenance-carrying graph, two access axes, an organization above workspace,
+> and agents as bounded principals. Phase 3 makes that substrate **trustworthy and
+> self-maintaining** — agents that know the business scope they operate in, knowledge that
+> is measured and re-certified rather than accumulated, the compliance commitments an
+> enterprise review asks for, and a path from the corpus back out to the artifacts an
+> organization runs on. Every Phase 3 note depends on Phase 2 and none of them changes a
+> Phase 1 contract.
 
 The Phase 1 spec, plan, research, data-model, contracts, and tasks remain the source of
 truth for what ships now — see [specs/001-contextengine-mvp/spec.md](./001-contextengine-mvp/spec.md)
@@ -206,7 +216,7 @@ Selection of the active provider(s) is a kernel `Flags`/config concern (e.g., `b
 
 - Credit **consumption** (Redis hot path, `billing.deduct`, three ceilings, `402`/`429` blocking) — untouched.
 - `workspace_credits`, the outbox pattern, and reconciliation — reused as-is; grants are just positive ledger rows.
-- The credits UI ([credits.md](../design-system/aisat-studio/pages/credits.md)) gains a real **Upgrade/Top-up** action wired to `/billing/checkout` and a receipts list from `/billing/payments`; the meter/ledger components are unchanged.
+- The credits UI ([credits.md](../design-system/aisat-intel/pages/credits.md)) gains a real **Upgrade/Top-up** action wired to `/billing/checkout` and a receipts list from `/billing/payments`; the meter/ledger components are unchanged.
 
 ### Open decisions to confirm before implementation
 
@@ -1395,12 +1405,781 @@ Audit rows gain:
 
 ---
 
+## Phase 3 — Agent Orientation & Business Scope
+
+**Status**: Draft / not started · **Added**: 2026-07-23 · **Depends on**:
+[Enterprise Knowledge Layer](#phase-2--enterprise-knowledge-layer-typed-artifacts-knowledge-graph--agent-context-api)
+(Phase 2)
+
+### Problem & intent
+
+Phase 2 gives an agent a complete **authorization** scope — clearance, principals, a tool
+allowlist, a write mode, a budget ([Agent Access & Accountability](#phase-2--agent-access--accountability)).
+It does not give the agent a **business** scope. Category D is a set of *pull* tools:
+`get_artifact_by_type`, `search_biz_rules`, `resolve_dependency_chain`. Every one of them
+requires the caller to already know what to ask for — which type, which domain, which
+artifact id. An agent dropped into a fresh workspace has no way to find out what the
+organization does, which rules govern it, or which of the several thousand indexed
+artifacts are load-bearing.
+
+That gap is the difference between *a library an agent can search* and *a briefing an agent
+can load*. The stated goal of the Phase 2 layer — "every agent in the enterprise has one
+authoritative place to look things up instead of guessing" — is not reachable while
+orientation is left to the agent's prompt author.
+
+This note adds two things and nothing else:
+
+1. An **orientation surface** — one bounded, access-filtered, cacheable briefing an agent
+   loads at session start.
+2. A **change cursor** so an agent can stay current without re-loading it.
+
+Both are read-only, both reuse the existing MCP + PAT surface, and neither changes a Phase 1
+or Phase 2 contract.
+
+Layer legend: **K** = kernel · **P** = product-specific.
+
+### Core rules
+
+- **The briefing is composed, never stored.** It is assembled per-caller from
+  access-filtered queries at request time. There is no workspace-wide "context blob" that
+  gets trimmed for the caller afterwards — a summary computed over content the caller cannot
+  see leaks it, and post-filtering a summary is not a filter (the same reasoning that keeps
+  retrieval pre-filtered under SC-001).
+- **Two agents in one workspace get different briefings.** Both access conjuncts apply
+  (clearance **and** principal overlap), so domain coverage, rule counts, and the registry
+  view all differ by caller. A briefing that is identical for every caller is a bug.
+- **Bounded by construction.** The briefing enters an agent's context window on every
+  session, so it carries a hard token budget (default 4,000; workspace-configurable up to
+  16,000). Sections are filled in priority order and truncated with an explicit
+  `truncated: true` + a pointer to the Category D tool that returns the full set — never
+  silently.
+- **Orientation is not retrieval.** It answers *what exists and what governs it*, not
+  *what does this document say*. It returns titles, types, ids, statuses, and edge counts —
+  never chunk bodies. This keeps the token budget honest and keeps a cheap, frequently
+  called tool from becoming a bulk-export path.
+- **Domain is finally a real entity.** Phase 2 already accepts `domain?` as a filter
+  argument on `get_artifact_by_type` and `search_biz_rules` without ever defining it. It is
+  promoted to a table here rather than left as a free-text string, because a free-text
+  domain becomes a de-facto taxonomy that nobody governs.
+
+### Data model
+
+#### `knowledge_domains` (P) — the business-domain map
+
+The organization's own decomposition of itself (`payments`, `identity`, `logistics`). Small
+and authored; this is the one place manual entry is justified, because no source system
+holds it.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID v7 PK | |
+| `workspace_id` | UUID NOT NULL | RLS column |
+| `code` | TEXT NOT NULL | slug, e.g. `payments`; `UNIQUE (workspace_id, code)` |
+| `name`, `description` | TEXT | `description` is what an agent actually reads |
+| `parent_id` | UUID NULL | FK → self; at most **two** levels (see rule below) |
+| `steward_user_id` | UUID NULL | Accountable human; default reviewer for the domain's artifacts |
+| `created_at`, `updated_at` | TIMESTAMPTZ | |
+
+- `documents.domain_id UUID NULL` is added as an additive column (FK → `knowledge_domains`),
+  populated by the same BAML extraction step that already suggests `data_type` and `tags[]`,
+  with human review. NULL = undomained, which is the normal state for most Phase-1 documents
+  and must never be treated as an error.
+- **Depth is capped at two levels.** A deeper tree is an org chart, and org charts change
+  faster than knowledge does. If a workspace needs a third level it wants `tags[]`.
+- Domains are **not** an access axis. Restriction is `access_level` + `allowed_principals`,
+  full stop. A domain is a navigational and orientational label, and conflating the two would
+  produce a third access mechanism that no filter enforces.
+
+#### `workspace_charter` — an artifact type, not a table
+
+The workspace's own statement of what it does, its operating constraints, and its
+conventions. Seeded as `artifact_type` code `charter`, `governed = true`, so it inherits the
+authored lifecycle (`draft → active → deprecated`), versioning, and approval already
+specified in Phase 2. At most one `active` charter per workspace (partial unique index).
+
+Modelling it as a document rather than a settings field is deliberate: it is content, it
+wants version history and an approver, it should be retrievable and citable in an answer,
+and it must obey the same access model as everything else.
+
+#### `corpus_version` — the workspace change cursor
+
+A monotonic `BIGINT` on the workspace row, incremented in the same transaction as any write
+to `documents`, `knowledge_edges`, `artifact_types`, `agent_registry`, or
+`knowledge_domains`. It serves three purposes at once, which is why it is one counter and
+not three:
+
+1. Cache key component for the briefing (below).
+2. The cursor an external agent passes to `list_changes`.
+3. A cheap "has anything changed?" check that costs one row read.
+
+#### `knowledge_changelog` (P) — what `list_changes` reads
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID v7 PK | |
+| `workspace_id` | UUID NOT NULL | RLS column |
+| `corpus_version` | BIGINT NOT NULL | The value assigned by this change; indexed |
+| `entity_type` | TEXT NOT NULL | `document` \| `edge` \| `artifact_type` \| `agent` \| `domain` |
+| `entity_id` | UUID NOT NULL | |
+| `change` | TEXT NOT NULL | `created` \| `updated` \| `deprecated` \| `deleted` |
+| `artifact_type_code`, `domain_code` | TEXT NULL | Denormalized for cheap filtering |
+| `access_level` | INT NOT NULL | Snapshot at change time — the row is access-filtered on read |
+| `allowed_principals` | TEXT[] NOT NULL | Snapshot at change time |
+| `created_at` | TIMESTAMPTZ | Range-partitioned; retention 90d (a cursor older than that gets `reset_required`) |
+
+Written by the same handler that publishes `knowledge.artifact.updated.<type>.<ws>`. The
+NATS subject stays the **internal** fan-out; this table is the **external** one.
+
+- **A deletion tells you something existed.** A `deleted` row is emitted only to callers who
+  could see the entity at the time it was deleted — which is why the access snapshot is
+  stored on the row rather than joined from the (now absent) entity.
+- **The snapshot is a point-in-time grant, not a standing one.** Read is filtered against
+  the caller's *current* clearance and principals **and** the snapshot, taking the more
+  restrictive of the two. A demoted caller does not get to page back through history.
+
+### MCP tool additions — Category E (orientation)
+
+Extends Categories A/B/C (Phase 1) and D (Phase 2). Still read-only, still gated by
+`agent_policies.allowed_tools`, still both-conjunct pre-filtered.
+
+#### `get_workspace_context(domain?: string, budget_tokens?: int) -> WorkspaceContext`
+
+The orientation call. Returns, in priority order:
+
+| Section | Contents |
+|---------|----------|
+| `charter` | Active charter body (the one place a body *is* returned; it is short by construction and governed) |
+| `domains[]` | Code, name, description, steward, artifact counts — scoped to `domain` if given |
+| `governing_rules[]` | Active `biz_rule` artifacts for the domain: id, title, status, `version`, edge-degree. Ranked by edge-degree, then citation count (see [Knowledge Health](#phase-3--knowledge-health-lifecycle-aware-retrieval-usage-telemetry--recertification)) |
+| `artifact_types[]` | The taxonomy in force, with `governed` and `embed_policy` — so an agent knows what it is allowed to author and what will land as a draft |
+| `agents[]` | Registry summary: name, purpose, capabilities — the discovery entry point that `get_agent_registry` currently requires you to already know exists |
+| `your_scope` | The **caller's own** effective clearance label, principal count, allowed tools, write mode, and remaining budget |
+| `cursor` | Current `corpus_version`, to pass to `list_changes` |
+| `truncated` | Bool + which sections were cut |
+
+`your_scope` is the section that earns the tool. An agent that knows its own limits can say
+"I cannot see the Confidential tier, so this answer may be incomplete" instead of confidently
+answering from a partial corpus — and a human debugging an under-performing agent gets the
+same answer in one call instead of inferring it from denials.
+
+- **Cached** in Redis under the existing `allkeys-lru` semantic-cache role, keyed
+  `sha256(workspace_id | effective_access_level | effective_principals | domain | budget | corpus_version | cache_epoch)`.
+  A corpus write bumps `corpus_version` and invalidates naturally; no explicit eviction.
+  `cache_epoch` is the erasure hook (see
+  [Compliance & Data Lifecycle](#phase-3--enterprise-compliance--data-lifecycle)).
+- **Metered** as `operation_type='orientation'` at a low flat rate — it is one cached
+  read plus a handful of indexed queries, and pricing it like a query would discourage the
+  behaviour the feature exists to encourage.
+
+#### `list_changes(since: bigint, types?: string[], domain?: string, limit?: int) -> ChangeSet`
+
+Cursor-paged reads of `knowledge_changelog`, returning `{ changes[], cursor, reset_required }`.
+
+**Decision: pull, not push.** The Phase 2 note calls
+`knowledge.artifact.updated.<type>.<ws>` "the change-subscription backbone for agents stay
+current", but NATS is an internal bus and external agents hold an MCP device PAT — they
+cannot subscribe to it, so as written the stated purpose is unreachable. The fix is a cursor
+tool rather than outbound webhooks because:
+
+- It reuses the existing authenticated surface exactly — no new credential, no new endpoint,
+  no new authorization path.
+- Outbound HTTP to a customer-supplied URL is an **egress/SSRF surface**, and this codebase
+  already treats attacker-influenceable URLs as a mandatory-guard problem
+  ([mcp-tools.md](./001-contextengine-mvp/contracts/mcp-tools.md) SSRF rules). Adding one for
+  a convenience feature is a poor trade.
+- Delivery guarantees for a push channel mean retry, backoff, DLQ, and suppression — the
+  entire notification subsystem, rebuilt for machines.
+
+If push is genuinely needed later, it is an `agent_subscriptions` table + HMAC-signed
+delivery reusing the `notify.email` retry/DLQ machinery, with a mandatory egress allowlist.
+Do not build it speculatively.
+
+### REST contract additions (BFF)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/workspace/context` | The same briefing the agent sees, for the **Admin → Knowledge** tab — "what does an agent at clearance X in group Y actually know about us?" with a clearance/principal simulator |
+| CRUD | `/domains`, `/domains/{id}` | Domain map (admin/owner) |
+| GET | `/changes?since=` | Human-facing changelog view; same rows, same filter |
+
+The simulator on `/workspace/context` is the review surface for this whole feature. Agent
+scope bugs are invisible until something is silently missing, and "render the briefing as
+this principal would see it" turns that into something an admin can inspect in one screen.
+
+### Security checklist (delta)
+
+- [ ] **SC-001** Every briefing section is assembled from queries carrying both conjuncts.
+      No section is computed workspace-wide and filtered afterwards. Contract test: two
+      agents differing only in clearance receive different `governing_rules[]` and different
+      `domains[].artifact_count`.
+- [ ] **Counts leak too.** An artifact count is a *count of things the caller can see*.
+      Never return a total-with-a-hidden-remainder — that is the existence-privacy rule
+      (SC-001) restated for aggregates.
+- [ ] **FR-011** Charter and domain descriptions are workspace-authored content and are
+      untrusted input to the model like any retrieved chunk — wrapped in
+      `<retrieved_document>` delimiters, never treated as instructions. A charter is a
+      uniquely attractive injection target precisely because every agent loads it.
+- [ ] **AZ3** `domain_id` / `entity_id` resolved via `workspace_id` join, never raw id.
+- [ ] Changelog reads take the **more restrictive** of the snapshot and the caller's current
+      scope; an expired break-glass grant cannot be used to page history.
+- [ ] `get_workspace_context` is rate-limited per PAT — a cheap cached tool is still an
+      enumeration surface if called in a loop with varying `domain`.
+
+### Open decisions
+
+1. **Charter authoring UX.** A form, a markdown document in the Library, or extracted from
+   an existing company handbook via the mirrored-Git path. Leaning Library document with a
+   seeded template, consistent with "extraction, not authoring" and with the
+   mirrored-is-read-only principle.
+2. **Domain assignment confidence.** BAML suggests `domain_id`; open whether a low-confidence
+   suggestion auto-applies (reversible) or queues for review. Leaning auto-apply with
+   confidence recorded, because a review queue nobody drains leaves the map empty, and an
+   incorrect domain is navigational rather than a security fault.
+3. **Should `your_scope` list denied tools?** Listing what the agent *cannot* call is more
+   useful for self-explanation but is also a map of the workspace's policy surface. Leaning
+   yes for the agent's own scope only (it can discover this by trying anyway) and no for
+   other principals'.
+
+---
+
+## Phase 3 — Knowledge Health: Lifecycle-Aware Retrieval, Usage Telemetry & Recertification
+
+**Status**: Draft / not started · **Added**: 2026-07-23 · **Depends on**:
+[Enterprise Knowledge Layer](#phase-2--enterprise-knowledge-layer-typed-artifacts-knowledge-graph--agent-context-api)
+(Phase 2) · **Related**: [AI Response Rating](#phase-2--ai-response-rating-thumbs-up--down) (Phase 2)
+
+### Problem & intent
+
+The system observes itself in extraordinary detail — tokens, credits, spans, rerank scores,
+`recall@10`, `MRR@10` — and observes its **knowledge** not at all. Three specific
+consequences:
+
+1. **Lifecycle is decorative.** Phase 2 defines `draft → active → deprecated → superseded`
+   and `stale`, and then ranks retrieval as if none of it existed. The
+   [decision at open-question #4](#open-decisions) says a stale record "stays retrievable and
+   is badged `stale`" — but a badge is a UI answer to a ranking problem. An MCP consumer
+   receives `stale: true` as a field with nothing preventing it from being result #1, and the
+   overwhelmingly common agent implementation takes `results[0]`.
+2. **Nothing knows which knowledge is load-bearing.** There is no way to answer *which
+   documents were ever retrieved*, *which were ever cited*, or *which questions this corpus
+   repeatedly fails to answer*. The admin dashboard measures cost, not value.
+3. **Nothing ever ages knowledge out.** `deprecated` exists as a state with no process that
+   ever sets it. Staleness detection covers only *mirrored* content, where Git tells us the
+   answer for free. Authored artifacts — the biz rules, the charter, the agent definitions,
+   precisely the content agents treat as authoritative — decay silently and forever.
+
+The third is the one that matters most for an agent-consumed knowledge base. The failure
+mode of an enterprise second brain is not missing knowledge; it is **confidently retrieved
+stale knowledge**, and unlike a human reader an agent has no instinct that a document feels
+out of date.
+
+These three are one feature because they compound: telemetry identifies what is load-bearing,
+recertification reviews load-bearing content first, and ranking demotes what fails review.
+Built separately they are three half-measures.
+
+### Part A — Lifecycle-aware retrieval ranking
+
+**Demote, do not filter.** Lifecycle affects *ordering*, never *availability*. Filtering
+deprecated content out would silently make it unfindable, and "where did our old policy go"
+is a legitimate query. The one exception is stated below.
+
+`lifecycle_status`, `stale`, and `next_review_at` are added to the Qdrant chunk payload
+(alongside the existing `workspace_id`/`user_id`/`access_level` and the Phase 2
+`allowed_principals`). A multiplicative authority factor is applied **after RRF fusion and
+before the cross-encoder rerank**, so the precision stage still sees a full-sized, sanely
+ordered candidate set:
+
+| State | Default factor | Rationale |
+|-------|---------------|-----------|
+| `active` (or NULL — a plain Phase-1 document) | 1.00 | Untyped documents must not be penalized for not participating in a Phase-2 overlay |
+| `draft` | 0.60 | Real content, not yet endorsed |
+| `stale` | 0.50 | Origin moved; content may still be right |
+| overdue review > 2× interval | 0.50 | Same treatment as `stale` — see Part C |
+| `deprecated` | 0.25 | Deliberately retired, still findable |
+| `superseded` | 0.10 | A newer version exists |
+
+Factors are workspace-configurable. They are deliberately gentle: a strongly-matching
+deprecated document should still beat a weakly-matching active one, because the alternative
+is answering from the wrong document with more confidence.
+
+**The one filter.** A `superseded` artifact is **excluded by default when its successor is
+visible to the caller**. Returning a superseded spec as though it were current is the
+specific failure this whole part exists to prevent, and unlike the other states there is a
+strictly better answer available. `include_superseded: true` on the MCP tools and a "show
+version history" affordance in the Library restore it. If the successor is *not* visible to
+the caller, the superseded version is returned normally with its badge — hiding it would
+leak the successor's existence (SC-001).
+
+Also:
+- Citations carry `lifecycle_status`, `stale`, and `synced_at`; the debug panel shows the
+  authority factor applied per result alongside the existing hybrid/rerank scores.
+- An answer grounded predominantly (default > 50% of cited chunks) in non-`active` sources
+  carries an explicit caveat line. This is the natural pairing for the Phase 2 CRAG
+  groundedness node — "weak context" should include *stale* context, not only *irrelevant*
+  context.
+- **MCP results are ordered by the same factor.** The whole point is that a naive agent
+  taking `results[0]` gets the current one without having to implement any of this.
+
+### Part B — Knowledge usage telemetry
+
+#### `knowledge_usage_log` (P)
+
+One row per (query, retrieved document), written by the query worker after generation so
+citation status is known. Bounded by top-K, so ~10–20 rows per query — the same
+"query granularity, not chunk granularity" discipline Phase 2 applies to the audit trail.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID v7 PK | |
+| `workspace_id`, `user_id` | UUID NOT NULL | RLS columns |
+| `document_id` | UUID NOT NULL | |
+| `query_hash` | TEXT NOT NULL | `sha256(normalize(query))` — never the query text |
+| `rank` | INT | Post-rerank position |
+| `score` | REAL | Final score |
+| `cited` | BOOL NOT NULL | Did it survive into the answer's citations |
+| `actor_type` | TEXT NOT NULL | `user` \| `agent` — reuses the Phase 2 audit vocabulary |
+| `created_at` | TIMESTAMPTZ | Range-partitioned; 180d retention |
+
+**Query text is not stored here.** The hash supports "distinct queries" counting and
+gap-clustering (which runs on embeddings, not text) without turning a usage table into a
+second, less-governed copy of every question every member has ever asked.
+
+#### Materialized views
+
+Following the existing `response_rating_daily` pattern and refreshed by the same
+`usage.matview.refresh` tick:
+
+- `document_usage_daily` — retrieved count, cited count, distinct users, distinct agents,
+  `last_retrieved_at`, `last_cited_at`.
+- `domain_coverage_daily` — per domain: query volume, mean top score, abstain rate.
+
+#### The four derived views (Admin → Knowledge)
+
+| View | Definition | Why it matters |
+|------|-----------|----------------|
+| **Load-bearing** | Top documents by citation count | This is the recertification priority queue (Part C) and the answer to "what would hurt if it were wrong" |
+| **Dead weight** | Indexed > 90d, never retrieved | Storage and embedding cost with no return; candidates for archive. Also the honest measure the article asks for — *how much of what we captured did we ever use* |
+| **Coverage gaps** | Clustered unanswerable queries | The backlog of knowledge that should exist and does not |
+| **Health score** | Composite (below) | One number a workspace owner can watch |
+
+#### Coverage gaps — the flywheel
+
+A query counts as a gap when any of: the Phase 2 CRAG node abstained; max retrieval score
+fell below a floor; or the answer received a thumbs-down
+([AI Response Rating](#phase-2--ai-response-rating-thumbs-up--down)). Gap queries are
+clustered by embedding within the workspace and surfaced as topics — "14 questions about
+refund eligibility, no active `biz_rule` in the `payments` domain" — with a one-click path to
+create the missing artifact.
+
+**Privacy rule (non-negotiable).** A gap cluster is admin-visible **only** at aggregate:
+minimum 3 distinct queries from at least 2 distinct users, and the surface shows a generated
+topic label, never a member's verbatim question. Without this, "coverage gaps" is a feature
+that lets an admin read what individual members ask the assistant in private — which is a
+different product, and not one anyone should ship by accident. Below the threshold, the
+cluster is counted but not labelled.
+
+**Access rule.** Usage statistics about a document are visible only to principals who can see
+the document. The dead-weight list, the load-bearing list, and per-document counts all run
+both access conjuncts. An admin without a group grant does not see that group's documents in
+any of them — consistent with the Phase 2 **no implicit admin read** rule, which would
+otherwise be trivially bypassable through the analytics surface.
+
+### Part C — Recertification (the enterprise weekly review)
+
+#### Schema additions to `documents`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `steward_user_id` | UUID NULL | Accountable reviewer; defaults to `user_id` (uploader), reassignable — an uploader who leaves must not take stewardship with them |
+| `review_interval_days` | INT NULL | Overrides the type default |
+| `next_review_at` | TIMESTAMPTZ NULL | NULL = not subject to review |
+| `last_reviewed_at`, `last_reviewed_by` | TIMESTAMPTZ / UUID NULL | |
+
+And `artifact_types.default_review_interval_days INT NULL`, seeded: `biz_rule` 90,
+`charter` 90, `agent_def` 90, `spec` 180, `system_design` 180, `workflow` 180, `requirement`
+NULL, plain document NULL.
+
+**Only *authored* artifacts are reviewable.** Mirrored records inherit their origin's
+freshness through `source_version` + `stale` + `knowledge.staleness.tick` — asking a human to
+re-attest a file that Git already tracks is exactly the manual data entry the Phase 2
+"extraction, not authoring" rule bans. Governance follows origin, here as everywhere.
+
+#### `knowledge.review.tick` — single-owner scheduled job
+
+Reuses the locked Phase 1 pattern verbatim (external scheduler → JetStream tick → durable
+queue group → idempotent atomic claim; [research.md §14–§15](./001-contextengine-mvp/research.md)),
+so no new scheduling machinery:
+
+1. Claim due artifacts (`next_review_at <= now()`) via conditional `UPDATE`.
+2. **Order the queue by citation count, descending** — the most load-bearing knowledge is
+   reviewed first. This is the join between Part B and Part C, and it is what makes the
+   ritual evidence-driven rather than calendar-driven: reviewing 400 artifacts because a
+   date passed is how a review process dies, and reviewing the 12 that grounded 80% of last
+   quarter's answers is how it survives.
+3. Notify the steward via the existing `notify.<ws>` fan-out under a new category
+   `knowledge_review_due` (in-app on, email on by default — this is actionable, unlike most
+   categories).
+4. The steward resolves in one action: **Confirm** (bump `next_review_at`, stamp
+   `last_reviewed_at`), **Update** (new version via the existing `supersedes_id` machinery),
+   or **Deprecate**.
+5. **Escalation:** overdue beyond 2× the interval sets the authority factor to 0.50 (Part A)
+   and notifies the workspace owner. This is the mechanism that finally *sets* a decayed
+   state — it is deliberately a ranking penalty and never an automatic `deprecated`, because
+   silently retiring a rule nobody got around to re-reading is worse than demoting it.
+
+#### Workspace knowledge health score
+
+One composite, surfaced on Admin → Knowledge and in `get_workspace_context`:
+
+```
+health = w1·(reviewed_on_time / reviewable)
+       + w2·(1 − stale_ratio)
+       + w3·(1 − dead_weight_ratio)
+       + w4·(1 − gap_rate)
+```
+
+Default weights 0.4 / 0.2 / 0.2 / 0.2. The point is not the arithmetic; it is that the number
+moves when knowledge rots and gives an owner one thing to watch — the same role the article's
+non-negotiable weekly review plays for an individual.
+
+### Phase 1 / Phase 2 seams (no change required)
+
+- **Qdrant payload + payload indexes** already carry per-chunk metadata; three additive
+  fields, no re-embedding.
+- **`usage.matview.refresh` tick** already exists for the admin dashboard.
+- **Notification categories + preferences** are additive by design.
+- **`supersedes_id` / `version`** already implement the update path a review needs.
+- **CRAG abstain signal** (Phase 2) is the highest-quality gap input; until it exists, the
+  score floor and thumbs-down carry Part B alone.
+
+### Security checklist (delta)
+
+- [ ] **SC-001** Usage analytics, gap clusters, and every derived view apply both access
+      conjuncts. No implicit admin read of group-restricted documents through the analytics
+      surface.
+- [ ] **Aggregation floor enforced server-side** — a gap cluster below the minimum
+      distinct-query / distinct-user threshold is never labelled, and the threshold is not a
+      client parameter.
+- [ ] **L2 retention** `knowledge_usage_log` stores hashes and ids, never query text or chunk
+      bodies; 180d partition drop.
+- [ ] **Ranking is not an access decision.** The authority factor is applied strictly *after*
+      the access pre-filter and can only reorder what the caller may already see. A
+      contract test asserts factors never admit a chunk the filter excluded.
+- [ ] **AZ1/AZ6** Review resolution (confirm/update/deprecate) is restricted to the steward,
+      workspace admins, and owners; stewardship reassignment is admin/owner-only and audited.
+
+### Open decisions
+
+1. **Dead-weight action.** Report-only, or offer bulk archive (which for a mirrored record
+   means removing it from the index while the source stays authoritative)? Leaning
+   report-only first: "never retrieved" and "not needed" are not the same claim, and the cost
+   of over-archiving is a silent coverage gap.
+2. **Gap clustering cadence.** Per-query online clustering vs a nightly batch. Leaning
+   nightly batch — gaps are a backlog, not an alert, and batch keeps the query path clean.
+3. **Whether the health score is exposed to agents** via `get_workspace_context`. Leaning
+   yes: an agent that knows the corpus is 40% overdue can caveat accordingly.
+
+---
+
+## Phase 3 — Enterprise Compliance & Data Lifecycle
+
+**Status**: Draft / not started · **Added**: 2026-07-23 · **Scope**: the commitments an
+enterprise security review asks for that Phase 1/2 do not yet make
+
+### Problem & intent
+
+Phase 1 is strong on the mechanics an auditor tests — RLS, OIDC + PKCE, opaque sessions,
+append-only audit, existence privacy, OWASP alignment, 30d/90d retention. It is silent on the
+commitments an auditor *asks for first*, and each of the gaps below has been closed by
+competitors as table stakes:
+
+- **Right to erasure across derived state** — the genuinely hard one. Deleting a document is
+  easy; deleting everything *derived* from it spans Qdrant vectors, the Redis semantic answer
+  cache, Mem0 memories, Langfuse traces, S3 originals, DLQ payloads, and backups.
+- **Data residency and provider policy** — "does our content leave region X, and does it
+  train your vendors' models" is the first question in every enterprise AI review, and
+  nothing in the design answers it.
+- **Audit export, legal hold, access recertification** — the operational surface of any
+  SOC 2 / ISO 27001 conversation.
+- **Isolation tiering** — some buyers will not accept a shared vector collection regardless
+  of how good the payload filter is.
+
+Layer legend: **K** = kernel · **P** = product-specific. Almost all of this is **K** — it is
+reusable platform machinery, not product feature.
+
+### Part A — Right to erasure across derived state
+
+Erasure must be **enumerable, executable, and provable**. The table below is the contract:
+every store that can hold content derived from a document, and how erasure reaches it.
+
+| Store | Holds | Erasure mechanism |
+|-------|-------|-------------------|
+| Postgres `documents` / chunks | Bodies, metadata | Hard delete + tombstone row (id + erased_at, no content) |
+| Qdrant | Vectors + payload | Delete-by-filter on `document_id`, both collections |
+| S3 | Originals | Delete **all versions** — a versioned bucket silently retains the object otherwise |
+| Redis semantic answer-cache | Whole generated answers | **Workspace `cache_epoch` bump** (below) |
+| Mem0 | Distilled memories | Delete every memory whose `source_document_ids` intersects the erased set |
+| Langfuse / `llm_call_log` | Prompt + response bodies | **Nothing to erase — see the gateway rule below** |
+| `knowledge_usage_log`, `knowledge_changelog` | Hashes and ids only | No content; rows retained (id ≠ content) |
+| `dead_letters`, outbox | Message payloads, which *can* embed content | Scoped delete by `workspace_id` + resource ref; a poison message is not an erasure exemption |
+| Audit trail | Actor, operation, resource id, before/after **hashes** | **Never deleted** — compliant by construction because Phase 2 Decision 5 already stores hashes, not bodies |
+| Backups | Everything | Out-of-band: documented retention window, and erasure re-applied on any restore. Stated, not silently ignored |
+
+Three decisions inside that table are load-bearing:
+
+**1. The semantic cache is invalidated by epoch bump, not by reverse index.** A cached answer
+is keyed by query hash and cannot be enumerated by contributing document without maintaining
+a `cache:doc:{document_id} → answer keys` reverse index on every cache write — cost on the hot
+path, forever, to serve a rare operation. Instead, `cache_epoch:{workspace_id}` becomes a key
+component of every cached answer (and of the `get_workspace_context` briefing); erasure
+increments it and the entire workspace's cached answers become unreachable in one atomic
+operation. The cost is a cold cache for one workspace after an erasure. Erasures are rare;
+correctness here is provable rather than argued.
+
+**2. Memories are deleted, never edited.** A Mem0 memory is a distillation across chunks;
+there is no surgical way to remove one source's contribution from a synthesized sentence.
+`source_document_ids UUID[]` is added to the memory record (it is needed for this and nothing
+else), and any memory touching an erased document is deleted whole. Attempting a partial
+rewrite would produce a memory whose provenance no longer matches its content — worse than
+losing it.
+
+**3. The LLM gateway stops sending bodies to the tracer.** Rather than building an erasure
+path into an external observability vendor, enterprise-mode workspaces mask document bodies
+and prompt content out of Langfuse payloads at the gateway — traces carry ids, hashes, token
+counts, scores, and timings, which is what the debug panel and the cost dashboard actually
+consume. This trades a slice of prompt-level debuggability for the ability to state honestly
+that no customer content is held by a third-party observability provider. It is a per-workspace
+setting, default on for enterprise tier, default off for the developer/showcase tier where
+prompt inspection is the point.
+
+#### `erasure_requests` (K) + `compliance.erasure.tick`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID v7 PK | |
+| `workspace_id` | UUID NOT NULL | RLS column |
+| `subject_type` | TEXT NOT NULL | `document` \| `user` \| `document_set` |
+| `subject_ref` | JSONB NOT NULL | ids / filter |
+| `requested_by`, `reason` | UUID / TEXT NOT NULL | |
+| `status` | TEXT NOT NULL | `pending` \| `held` \| `executing` \| `verified` \| `failed` |
+| `store_results` | JSONB | Per-store: attempted, deleted count, verified_at |
+| `verification_hash` | TEXT NULL | Proof artifact |
+| `created_at`, `completed_at` | TIMESTAMPTZ | |
+
+Executed by a single-owner scheduled tick (same locked pattern), staged store-by-store, with
+a **verification pass** that re-queries every store for the subject and records the result.
+An erasure is `verified` only when every store returns nothing. Partial success is `failed`
+with the specific store named — never reported as done. The completion record is the
+certificate of erasure a customer will ask for.
+
+### Part B — Per-workspace model, provider & residency policy
+
+The LLM gateway is already the single chokepoint where every model id exists and every call
+passes ([llm-gateway.md](./001-contextengine-mvp/contracts/llm-gateway.md)). Policy belongs
+there and nowhere else.
+
+`workspace_llm_policy` (K): allowed providers, allowed regions, `require_no_training` (a
+contractual assertion recorded against the provider account), max model tier, and
+`on_policy_unavailable` ∈ (`fail` | `degrade`).
+
+- **Default `fail`, and it should stay `fail`.** The Phase 1 one-hop fallback exists so a
+  single-vendor outage degrades rather than downs the product — an excellent default that
+  becomes a compliance breach the moment the fallback target is in a disallowed region. When
+  policy is set, a policy-violating fallback is refused with an explicit error. An outage is
+  recoverable; content crossing a residency boundary is not.
+- **Policy applies to `embed` and `rerank`, not only `fast`/`smart`.** This is the one that
+  gets missed: embeddings send the full document body to a provider. A residency policy that
+  covers generation and not embedding covers nothing.
+- Violations are a hard error with a distinct code, surfaced in the debug panel and audited —
+  never a warning log.
+- Alias resolution gains `region` and `data_policy` dimensions; the resolved provider/region
+  is recorded on `llm_call_log` so the answer to "where was this processed" is per-call, not
+  per-deployment.
+
+### Part C — Audit export, legal hold, access recertification
+
+**Audit export.** `GET /audit/export?since=&format=ndjson|ocsf` (owner/admin), cursor-based
+and idempotent, including `actor_type='agent'` rows. Optional scheduled push to a
+customer-owned S3 bucket. The trail is already append-only; this is the read path a SIEM
+needs, and its absence is a common procurement blocker.
+
+**Legal hold.** `legal_holds` (K), scoped by workspace and optionally by principal or
+document filter. While a hold is active: erasure requests enter `held` rather than executing,
+retention purges skip matching rows, and deletes tombstone instead of removing.
+
+> **The conflict is surfaced, never silently resolved.** A hold that blocks a GDPR erasure is
+> a genuine legal tension between two obligations, and it is not the software's call. The
+> erasure request is visibly parked with the blocking hold named, and both the requester and
+> workspace owners are notified. A product that quietly lets one win produces a compliance
+> failure that nobody discovers until discovery.
+
+**Access recertification.** `access_reviews` (K) — a periodic campaign, driven by the same
+tick pattern, in which an owner attests each member's clearance, each group's membership,
+each agent's scope, and each active PAT.
+
+- **Non-attested *human* access is flagged and escalated, never auto-revoked.** Auto-expiring
+  a member's clearance because a manager missed an email breaks the business and trains
+  people to rubber-stamp campaigns.
+- **Non-attested *agent* scope and write grants auto-expire.** An agent is a higher-risk,
+  lower-blast-radius principal: re-granting is cheap, and a standing unattested write grant is
+  exactly what a security review flags. Agent scope therefore gains a mandatory `expires_at`
+  (default 180d) — the Phase 2 model gives PATs a 90d expiry but leaves the *scope* standing
+  forever, which is the wrong half to bound.
+
+**Principal anomaly detection.** Per-principal baselines (query rate, distinct documents
+retrieved, denial rate, write rate) with deviation alerts, feeding the existing agent
+activity panel ([agents.md](../design-system/aisat-intel/pages/agents.md) "Agent activity
+panel"). A compromised PAT looks exactly like a busy agent without this. Complements the
+adversarial-input red-teaming already scheduled for Phase 3.
+
+### Part D — Isolation tiering
+
+| Tier | Postgres | Qdrant | For |
+|------|----------|--------|-----|
+| **1 — Shared** (default) | Shared, RLS | Shared collection, payload filter | Everyone |
+| **2 — Dedicated index** | Shared, RLS | Dedicated collection per workspace | Buyers who will not share a vector index |
+| **3 — Dedicated stack** | Dedicated schema or database | Dedicated collection | Regulated / large enterprise |
+
+Two rules make tiering safe rather than a new attack surface:
+
+1. **The payload filter is never dropped because the collection is dedicated.** Both
+   conjuncts still apply inside a dedicated collection. A tier upgrade must not weaken the
+   SC-001 invariant, and "the collection is per-tenant so the filter is redundant" is precisely
+   how a routing bug becomes a cross-tenant leak.
+2. **The collection/schema name resolves server-side from workspace config, never from the
+   request.** Same rule as `workspace_id` coming from the PAT and never the body (FR-027).
+
+Tier 3 breaks the "one image, many roles" provisioning simplicity and needs the Phase 4
+automation to be practical — sequence it after, not before.
+
+### Security checklist (delta)
+
+- [ ] Erasure verification pass queries **every** store listed in Part A and fails loudly on
+      any remainder; a partial erasure is never reported as complete.
+- [ ] `cache_epoch` participates in every semantic-cache key **and** the orientation-briefing
+      key; contract test: a bump makes a previously-cached answer unreachable.
+- [ ] Mem0 memories carry `source_document_ids` and are deleted whole on any intersection.
+- [ ] Gateway policy enforced for **all four** aliases (`fast`, `smart`, `embed`, `rerank`);
+      contract test: a fallback into a disallowed region is refused, not silently taken.
+- [ ] Enterprise-mode traces contain no document bodies or prompt content — asserted by a
+      test that scans an emitted trace payload for a known canary string.
+- [ ] Audit export is read-only, cursor-based, owner/admin-only, and itself audited.
+- [ ] Legal hold blocks erasure and retention purge; the conflict is surfaced and notified.
+- [ ] Agent scope grants carry a mandatory `expires_at`; an expired scope denies rather than
+      falling back to the owner's access.
+- [ ] Dedicated-collection routing resolves server-side; the payload pre-filter is applied
+      identically in every tier.
+
+### Open decisions
+
+1. **Backup erasure.** Full re-application on restore (operationally heavy, complete) vs a
+   documented maximum-retention window after which backups age out (standard practice,
+   easier to state honestly). Leaning the documented window, with re-application scripted for
+   restores inside it.
+2. **Enterprise-mode trace masking default.** Whether the developer/showcase tier and the
+   enterprise tier are a workspace flag or a deployment mode. Leaning workspace flag —
+   deployment modes fork the codebase in practice.
+3. **CMK / bring-your-own-key encryption at rest.** Frequently asked, rarely used, and a
+   substantial lift across four stores. Not scoped here; record as a known request and answer
+   with the isolation tier plus provider-level encryption until a customer blocks on it.
+
+---
+
+## Phase 3 — The Expression Layer
+
+**Status**: Draft / not started · **Added**: 2026-07-23 · **Depends on**:
+[Enterprise Knowledge Layer](#phase-2--enterprise-knowledge-layer-typed-artifacts-knowledge-graph--agent-context-api)
+and [Agent Access & Accountability](#phase-2--agent-access--accountability) (Phase 2) ·
+**Least resolved section in this document** — the decisions below are leanings, not
+settlements
+
+### Problem & intent
+
+Everything shipped and everything planned turns input into a **searchable, governed,
+answerable corpus**. Nothing turns that corpus into **output**. A member can ask what the
+refund policy is; they cannot ask the system to draft the refund-policy update, the decision
+record for last week's architecture call, or the Monday digest of what changed in their
+domain. The knowledge goes in and answers come out, and the artifacts the organization
+actually runs on are still written by hand somewhere else — which is where they then drift
+out of the corpus that was supposed to be authoritative.
+
+This is the last structural gap between "a very good enterprise RAG platform" and "a second
+brain": a knowledge base that cannot produce anything is a knowledge base whose contents
+slowly stop matching how the organization actually works.
+
+The Phase 2 write model is the enabler and is already correct — write as an explicit
+off-by-default capability, agent-authored content badged, governed types landing as `draft`,
+derived content never widening access. What is missing is not permission; it is **workflow**.
+
+### Three flows
+
+**1. Decision record from a conversation.** A chat thread becomes a `decision_record`
+artifact: the decision, the alternatives considered, the citations that grounded it, and
+`knowledge_edges` linking it to the artifacts it decides about (`decides`) and any prior
+decision it replaces (`supersedes`). This is the highest-value flow because decisions are the
+artifact type that most reliably exists only in someone's memory and a Slack thread.
+
+**2. Grounded drafting.** Pick an `artifact_type` and a domain; the agent drafts against
+`artifact_types.schema` using only retrieved, access-filtered, `active` sources, and lands the
+result as `draft` with an inline provenance panel mapping each section to the chunks that
+grounded it. Ungrounded sections are **marked as ungrounded**, not silently generated — an
+unmarked hallucinated clause in a governed artifact is the worst failure this system could
+produce.
+
+**3. Change digest.** A scheduled per-member or per-domain summary built from
+`knowledge_changelog` + usage telemetry: what changed in your domain, what is now overdue for
+your review, which gaps opened. Reuses the notification fan-out and the tick pattern; costs
+almost nothing given Phase 3's other two notes, and it is the mechanism that actually makes
+the corpus part of someone's week.
+
+### Hard rules
+
+- **Expression never widens access, and across differing principal sets it refuses.**
+  Clearance is an ordered axis, so a derived artifact takes the **max** clearance of its
+  sources — safe. Principals are **not** ordered and the ACL is OR-semantics, so there is no
+  correct automatic answer when sources carry different non-empty principal sets: the union
+  makes the artifact visible to people who could see only one source, and the intersection is
+  frequently empty, which means *clearance alone governs* — wider still. This is the same
+  impossibility that forces
+  [access-model rule 7](#rules-that-fall-out-of-this-all-decided-not-open) to partition memory
+  distillation by principal signature, and it resolves the same way:
+  - **Agents: refuse.** Name the conflicting sources; no override.
+  - **Humans: refuse by default**, with an explicit assignment step where the author chooses
+    the resulting principal set and that choice is audited as a deliberate access decision.
+- **Grounding is required and visible.** Every substantive claim carries a citation. Pairs
+  directly with the Phase 2 CRAG/Self-RAG faithfulness node.
+- **Agent-authored governed artifacts land as `draft`** (Phase 2 Decision 4, unchanged).
+- **Expression is metered** like any other AI operation (`operation_type='express'`) and
+  counts against the same budgets.
+- **Only `active`, non-stale sources by default.** Drafting from a deprecated spec should
+  require saying so, and Part A of the Knowledge Health note makes that state available at
+  retrieval.
+
+### Open decisions
+
+1. **Surface.** A new top-level "Compose" section, or an action in Library + chat? Leaning
+   the latter, consistent with the Phase 2 "this layer adds facets to existing surfaces; it
+   does not add a parallel section" principle that already resolved the artifact-browser and
+   agent-registry questions.
+2. **Seeded types.** `decision_record` is clearly worth seeding. Whether `brief`, `runbook`,
+   and `postmortem` join it, or whether workspaces define their own, is open — every seeded
+   type is a governance commitment.
+3. **Digest scope.** Per-member (personalized by stewardship + usage) or per-domain
+   (broadcast)? Leaning per-domain first: it is a single computation per domain, and a
+   personalized digest nobody opens is the notification-fatigue failure the storm-coalescing
+   rule already exists to prevent.
+4. **Whether expression is agent-initiated at all in the first cut.** A human-initiated,
+   agent-drafted flow is meaningfully safer and covers most of the value. Leaning
+   human-initiated only until the Phase 2 write model has run in production.
+
+---
+
 ## Phase 4 Scalability and Resilience Hardening
 
 **Original title**: Phase 4 Notes — Scalability & Resilience Hardening
 **Status**: Backlog / not started · **Created**: 2026-06-20 · **Plan**: [plan.md](./001-contextengine-mvp/plan.md)
 
-These notes capture the work required to take AISAT-STUDIO from its **Phase 1 MVP
+These notes capture the work required to take AISAT-INTEL from its **Phase 1 MVP
 provisioning** (Go BFF 2 replicas, 3 Python worker pods per NATS subject, single
 Qdrant/NATS cluster, Postgres primary + 1 read replica — see
 [plan.md](./001-contextengine-mvp/plan.md) "Scale/Scope") to **resilient operation under tens of
@@ -1423,8 +2202,8 @@ before high-concurrency production load.
 > is therefore provisioning + HA + load validation, not redesign.
 
 > Phase map: Phase 1 = Core App · Phase 2 = Evaluation Suite (+ Headroom eval) ·
-> Phase 3 = Automated security red-teaming · **Phase 4 = Scale & Resilience
-> Hardening (this doc)**.
+> Phase 3 = Trust & Knowledge Health (+ automated security red-teaming) ·
+> **Phase 4 = Scale & Resilience Hardening (this doc)**.
 
 ### P0 — Blocking for high concurrency
 

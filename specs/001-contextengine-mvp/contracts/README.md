@@ -1,4 +1,4 @@
-# Contracts: AISAT-STUDIO MVP (Phase 1)
+# Contracts: AISAT-INTEL MVP (Phase 1)
 
 **Date**: 2026-06-06 | **Plan**: [../plan.md](../plan.md)
 

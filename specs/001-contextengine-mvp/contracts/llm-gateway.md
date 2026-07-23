@@ -69,7 +69,7 @@ Both `proxy` and `byok` modes must configure the MCP server to access the knowle
 `proxy` / `byok` are the config identifiers; the middle column is the wording every UI surface
 uses. Do not surface the identifiers to members — the choice is framed as a convenience
 (`proxy` means *no API key to obtain or manage*), not as a governance setting. Full copy
-guidance: [design-system agents page](../../../design-system/aisat-studio/pages/agents.md).
+guidance: [design-system agents page](../../../design-system/aisat-intel/pages/agents.md).
 
 **Two modes only, no third.** An agent whose vendor runs its own inference (GitHub Copilot and
 similar, with no endpoint to redirect) is simply `byok` — it reaches the MCP server and never

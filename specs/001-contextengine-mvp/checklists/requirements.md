@@ -1,4 +1,4 @@
-# Specification Quality Checklist: AISAT-STUDIO MVP (Phase 1)
+# Specification Quality Checklist: AISAT-INTEL MVP (Phase 1)
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-06-05

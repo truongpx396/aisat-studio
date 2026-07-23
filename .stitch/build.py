@@ -76,7 +76,7 @@ def sidebar(active, extra=""):
     return f'''    <aside class="hidden md:flex w-60 shrink-0 flex-col border-r border-line bg-surface sidebar-texture">
       <div class="flex items-center gap-2 px-5 h-16 border-b border-line">
         <span class="grid place-items-center h-8 w-8 rounded-lg bg-primary text-[#04210F] font-mono font-bold">A</span>
-        <span class="font-mono font-semibold tracking-tight text-gradient">AISAT<span style="-webkit-text-fill-color:#22C55E">·</span>STUDIO</span>
+        <span class="font-mono font-semibold tracking-tight text-gradient">AISAT<span style="-webkit-text-fill-color:#22C55E">·</span>INTEL</span>
       </div>
       <!-- Org + workspace switcher. The org line renders only when the org has more than
            one workspace or an enterprise plan; Organization settings open from here, which

@@ -1,4 +1,4 @@
-# Track Manifest — AISAT-STUDIO MVP (001-contextengine-mvp)
+# Track Manifest — AISAT-INTEL MVP (001-contextengine-mvp)
 
 Consumed by the `executing-parallel-tracks` skill. Task IDs, ownership, and isolation rules are
 derived from [tasks.md](./tasks.md) and [dispatch-prompts.md](./dispatch-prompts.md). When those

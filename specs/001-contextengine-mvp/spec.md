@@ -1,4 +1,4 @@
-# Feature Specification: AISAT-STUDIO MVP — AI-Powered Shared Second Brain (Phase 1)
+# Feature Specification: AISAT-INTEL MVP — AI-Powered Shared Second Brain (Phase 1)
 
 **Feature Branch**: `001-contextengine-mvp`
 
@@ -6,11 +6,11 @@
 
 **Status**: Draft
 
-**Input**: User description: "pls refer to content of draft-idea.md" — AISAT-STUDIO MVP, Phase 1 Core App design spec.
+**Input**: User description: "pls refer to content of draft-idea.md" — AISAT-INTEL MVP, Phase 1 Core App design spec.
 
 ## Overview
 
-AISAT-STUDIO is an AI-powered shared second brain for work teams. Members upload files, paste links, and add notes; the system automatically ingests, organizes, and makes that knowledge queryable through a conversational AI interface. The AI only ever surfaces knowledge the requester is authorized to see, with access control enforced at the data layer rather than by prompt instructions.
+AISAT-INTEL is an AI-powered shared second brain for work teams. Members upload files, paste links, and add notes; the system automatically ingests, organizes, and makes that knowledge queryable through a conversational AI interface. The AI only ever surfaces knowledge the requester is authorized to see, with access control enforced at the data layer rather than by prompt instructions.
 
 This specification covers **Phase 1 (Core App)** only. The Evaluation Suite (Phase 2) and automated security red-teaming (Phase 3) are out of scope, except for a minimal evaluation seed set and the structural prompt-injection defenses that must ship in Phase 1 because untrusted content flows through the core data path.
 

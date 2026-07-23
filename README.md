@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧠 AISAT-STUDIO — ContextEngine
+# 🤖 AISAT-INTEL — ContextEngine
 
 ### An AI-Powered Shared Second Brain for Work Teams
 
@@ -41,11 +41,13 @@ Access control is enforced at the **data layer**, never by prompt. Every AI oper
 
 ## 🎯 What Is This?
 
-**AISAT-STUDIO (ContextEngine)** is a multi-tenant, AI-powered knowledge platform. Team members ingest documents (PDF, DOCX, markdown, images) and web links; the system converts, auto-tags, chunks, embeds, and indexes them. A **stateful RAG agent** then answers natural-language questions **with citations**, strictly scoped to what the requester is cleared to see.
+**AISAT-INTEL (ContextEngine)** is a multi-tenant, AI-powered knowledge platform. Team members ingest documents (PDF, DOCX, markdown, images) and web links; the system converts, auto-tags, chunks, embeds, and indexes them. A **stateful RAG agent** then answers natural-language questions **with citations**, strictly scoped to what the requester is cleared to see.
 
 > A shared AI-powered second brain — upload files, paste links, add notes; query across personal + team knowledge; **only ever see what you're allowed to see.**
 
-The product is intentionally built as a **developer / architecture showcase**: every advanced pattern — hybrid retrieval, cross-encoder reranking, structure-aware **parent-child + contextual-retrieval chunking**, metadata pre-filtering, two-tier tools, visual captioning, and Redis semantic answer-caching — is **named, observable, and visible in a debug panel**.
+**Where it is going.** The end state is an **enterprise second brain**: one authoritative, access-governed place where both people *and* AI agents look things up, contribute back, and are held accountable for what they did. Phase 1 builds the substrate — ingest → retrieve → cited answer, with access enforced at the data layer and every AI call metered. Phase 2 adds the layer that makes it enterprise-grade for agents: typed artifacts, a provenance-carrying knowledge graph, a second (group ACL) access axis, an organization above workspace, and **agents as first-class principals bounded by their owner**. Phase 3 makes it trustworthy over time: agents that know the *business* scope they operate in, knowledge that is measured and re-certified rather than merely accumulated, and the compliance commitments an enterprise review asks for. See the [Roadmap](#-roadmap) and [draft-plan.md](specs/draft-plan.md).
+
+**A deliberate secondary property** — because the architecture should be legible, not a black box: every advanced pattern here — hybrid retrieval, cross-encoder reranking, structure-aware **parent-child + contextual-retrieval chunking**, metadata pre-filtering, two-tier tools, visual captioning, and Redis semantic answer-caching — is **named, observable, and visible in a debug panel**. That makes the repo readable as a reference implementation, but the debug panel is a product feature (US5), not the point of the product.
 
 📄 Full specification: [specs/001-contextengine-mvp/spec.md](specs/001-contextengine-mvp/spec.md)
 
@@ -55,7 +57,7 @@ The product is intentionally built as a **developer / architecture showcase**: e
 
 This is not a toy RAG demo. It is designed around the constraints real production AI systems must satisfy:
 
-| Concern | How AISAT-STUDIO Solves It |
+| Concern | How AISAT-INTEL Solves It |
 |---|---|
 | 🔐 **Hard multi-tenant isolation** | PostgreSQL **Row-Level Security (RLS)** + Qdrant **payload pre-filters**. 100% access-control correctness is a **release blocker** (SC-001). |
 | 🛡️ **Prompt-injection resistance** | Access enforced at the data layer, *never* by prompt. Injection / disallowed inputs are **refused before retrieval or spend** (SC-007). Embedded "ignore previous instructions" in documents is treated as inert reference text. |
@@ -490,7 +492,7 @@ DLQ DRAIN (dlq.sweep.tick · single-owner cmd/worker)
                           └─no─▶ INSERT dead_letters + emit dlq.dead.count (terminal, admin-replayable)
 ```
 
-📐 Flow diagram: [notification-flow.excalidraw](specs/001-contextengine-mvp/diagrams/addition/notification-flow.excalidraw) · 📄 Subjects: [nats-subjects.md](specs/001-contextengine-mvp/contracts/nats-subjects.md) · UI: [notifications.md](design-system/aisat-studio/pages/notifications.md)
+📐 Flow diagram: [notification-flow.excalidraw](specs/001-contextengine-mvp/diagrams/addition/notification-flow.excalidraw) · 📄 Subjects: [nats-subjects.md](specs/001-contextengine-mvp/contracts/nats-subjects.md) · UI: [notifications.md](design-system/aisat-intel/pages/notifications.md)
 
 ---
 
@@ -537,7 +539,7 @@ Ten constitutional principles ([constitution.md](.specify/memory/constitution.md
 The full post-implementation layout — a layered **kernel/product** split in Go and **feature-first** modules across all three runtimes (per [plan.md](specs/001-contextengine-mvp/plan.md) and [tasks.md](specs/001-contextengine-mvp/tasks.md)):
 
 ```text
-aisat-studio/
+aisat-intel/
 ├── README.md                          # ← you are here
 ├── Makefile                           # canonical task runner: up/down · build · test · lint · migrate · eval · dev
 ├── .specify/memory/constitution.md    # 🏛️ governing constitution (v2.1.0)
@@ -595,7 +597,7 @@ aisat-studio/
 │   ├── contracts/                     #   📜 contract-first boundaries (REST · NATS · MCP · LLM · SSE)
 │   └── diagrams/                      #   📐 Excalidraw architecture diagrams
 │
-└── design-system/aisat-studio/        # 🎨 UI design system + per-page specs
+└── design-system/aisat-intel/        # 🎨 UI design system + per-page specs
 ```
 
 > Runtime trees (`backend-go/`, `backend-python/`, `frontend/`, `deploy/`) are scaffolded by the task plan — see the Project Structure section of [plan.md](specs/001-contextengine-mvp/plan.md) and [tasks.md](specs/001-contextengine-mvp/tasks.md).
@@ -615,7 +617,7 @@ This repository is **spec-driven** (GitHub Spec Kit). The design package is the 
 | 🗄️ [data-model.md](specs/001-contextengine-mvp/data-model.md) | Entity catalog, RLS policies, partitions, access-control invariants. |
 | 🚀 [quickstart.md](specs/001-contextengine-mvp/quickstart.md) | Local development and run instructions. |
 | ✅ [tasks.md](specs/001-contextengine-mvp/tasks.md) | Dependency-ordered, TDD-first task breakdown by user story. |
-| 💳 [draft-plan.md](specs/draft-plan.md) | Phase 2+ later-phase design notes held for future planning — billing & payments, response rating, workspace mind map, enterprise knowledge layer, tenancy & delegated administration, agent access & accountability, and Phase 4 scale/resilience hardening. Every open decision in it is resolved; each section links back to the Phase 1 doc it defers from. |
+| 💳 [draft-plan.md](specs/draft-plan.md) | Phase 2+ later-phase design notes held for future planning. **Phase 2** (substrate): billing & payments, response rating, workspace mind map, enterprise knowledge layer, tenancy & delegated administration, agent access & accountability. **Phase 3** (trust): agent orientation & business scope, knowledge health, enterprise compliance & data lifecycle, the expression layer. **Phase 4**: scale/resilience hardening. Each section links back to the Phase 1 doc it defers from; Phase 2 decisions are resolved, Phase 3 notes carry their open decisions explicitly. |
 | ☑️ [checklists/requirements.md](specs/001-contextengine-mvp/checklists/requirements.md) | Spec-quality checklist. |
 
 ### 📜 Contracts (contract-first boundaries)
@@ -653,8 +655,8 @@ Open `.excalidraw` files at [excalidraw.com](https://excalidraw.com) or with the
 
 A dark-first developer/observability aesthetic — *"code dark + run green"* (slate-900 canvas, run-green primary, semantic cyan/amber/red for status and scores), with Fira Code / Fira Sans typography and WCAG 2.1 AA targets.
 
-- 🎨 Master tokens & components: [design-system/aisat-studio/MASTER.md](design-system/aisat-studio/MASTER.md)
-- 📄 Per-page specs: [chat](design-system/aisat-studio/pages/chat.md) · [library](design-system/aisat-studio/pages/library.md) · [workspace](design-system/aisat-studio/pages/workspace.md) · [agents](design-system/aisat-studio/pages/agents.md) · [credits](design-system/aisat-studio/pages/credits.md) · [notifications](design-system/aisat-studio/pages/notifications.md) · [admin](design-system/aisat-studio/pages/admin.md) · [organization](design-system/aisat-studio/pages/organization.md) *(Phase 2)*
+- 🎨 Master tokens & components: [design-system/aisat-intel/MASTER.md](design-system/aisat-intel/MASTER.md)
+- 📄 Per-page specs: [chat](design-system/aisat-intel/pages/chat.md) · [library](design-system/aisat-intel/pages/library.md) · [workspace](design-system/aisat-intel/pages/workspace.md) · [agents](design-system/aisat-intel/pages/agents.md) · [credits](design-system/aisat-intel/pages/credits.md) · [notifications](design-system/aisat-intel/pages/notifications.md) · [admin](design-system/aisat-intel/pages/admin.md) · [organization](design-system/aisat-intel/pages/organization.md) *(Phase 2)*
 - 🖼️ Rendered mockups live in [`.stitch/designs/`](.stitch/designs/) — one HTML file per page spec. Future-phase affordances are staged there behind a muted `Phase 2` / `Phase 4` chip so shipped Phase-1 surface stays distinguishable from design intent.
 - 🔧 The shared app shell (sidebar, org/workspace switcher, primary nav) is generated for every mockup by [`.stitch/build.py`](.stitch/build.py) — edit it there, not per file. `python3 .stitch/build.py --check` fails on drift.
 
@@ -667,7 +669,7 @@ A dark-first developer/observability aesthetic — *"code dark + run green"* (sl
 | **Phase 1 — Core App** *(current)* | Ingestion, 7-pattern RAG, agent layer, access control, credits, debug panel, notifications — plus structural prompt-injection defenses and a minimal eval seed set. |
 | **Phase 2 — Evaluation Suite & Billing** | Full Promptfoo + DeepEval + Ragas, **answer-groundedness self-correction** (CRAG/Self-RAG node — grade → re-retrieve / `web_search` / abstain, see [research §17](specs/001-contextengine-mvp/research.md)), agent `web_search` (per-search HITL), context compression (Headroom seam), audio ingestion (Whisper), the **billing & payments** layer (Stripe / Polar / PayPal adapters, checkout, webhooks, subscriptions — see [draft-plan.md — Phase 2](specs/draft-plan.md#phase-2-billing-and-payments)), **AI response rating** (thumbs up/down per answer, feeds eval pipeline — see [draft-plan.md](specs/draft-plan.md#phase-2--ai-response-rating-thumbs-up--down)), and a **workspace knowledge mind map** (seed from any doc/note/query, edge-verified retrieval, progressive SSE streaming — see [draft-plan.md](specs/draft-plan.md#phase-2--workspace-knowledge-mind-map)). |
 | **Phase 2 — Enterprise & Access** | A second **access axis** — the L1–L5 ladder joined by group/principal ACLs, with the ladder's labels and level count becoming workspace config (see [draft-plan.md — Access model](specs/draft-plan.md#access-model-decided)); an **enterprise knowledge layer** (typed artifacts, a provenance-carrying knowledge graph, an agent registry, and Git/Jira/Confluence connectors — [draft-plan.md](specs/draft-plan.md#phase-2--enterprise-knowledge-layer-typed-artifacts-knowledge-graph--agent-context-api)); an **organization** above workspace for consolidated billing, SSO/SCIM and policy defaults, plus delegated group administration ([draft-plan.md](specs/draft-plan.md#phase-2--tenancy--delegated-administration)); and **agent access & accountability** — agents as principals bounded by their owner, explicit write scope, and resource-level audit visible to the agent's owner ([draft-plan.md](specs/draft-plan.md#phase-2--agent-access--accountability)). |
-| **Phase 3 — Security Hardening** | Automated red-teaming (NVIDIA Garak), expanded abuse controls. |
+| **Phase 3 — Trust & Knowledge Health** | Makes the Phase 2 substrate trustworthy and self-maintaining. **Agent orientation & business scope** — a bounded, per-caller `get_workspace_context` briefing (charter, domain map, governing rules, the agent's *own* effective scope) plus a `list_changes` cursor, so an agent knows what the organization does instead of only what it may read ([draft-plan.md](specs/draft-plan.md#phase-3--agent-orientation--business-scope)). **Knowledge health** — lifecycle-aware retrieval ranking (deprecated/stale/superseded demoted, not just badged), knowledge-usage telemetry with a coverage-gap backlog, and steward-driven recertification prioritized by what is actually load-bearing ([draft-plan.md](specs/draft-plan.md#phase-3--knowledge-health-lifecycle-aware-retrieval-usage-telemetry--recertification)). **Enterprise compliance & data lifecycle** — provable erasure across every derived store, per-workspace provider/residency policy at the LLM gateway, SIEM audit export, legal hold, access recertification, and isolation tiering ([draft-plan.md](specs/draft-plan.md#phase-3--enterprise-compliance--data-lifecycle)). **The expression layer** — grounded drafting, decision records, and change digests, so the corpus produces artifacts and not only answers ([draft-plan.md](specs/draft-plan.md#phase-3--the-expression-layer)). Plus **automated red-teaming** (NVIDIA Garak), principal anomaly detection, and expanded abuse controls. |
 | **Phase 4 — Scale & Resilience** | Worker autoscaling (KEDA on NATS lag), SSE connection ceilings and backpressure, PgBouncer, Qdrant/Redis HA, load & soak testing, per-tenant fairness — [draft-plan.md — Phase 4](specs/draft-plan.md#phase-4-scalability-and-resilience-hardening). |
 
 ---

@@ -2,7 +2,7 @@
 description: "Subagent dispatch prompts for parallel execution of tasks.md (Stage 1 → Foundational → first story wave)"
 ---
 
-# Subagent Dispatch Prompts — AISAT-STUDIO MVP
+# Subagent Dispatch Prompts — AISAT-INTEL MVP
 
 Copy-paste prompts for executing [tasks.md](./tasks.md) with `superpowers:subagent-driven-development`
 (fresh implementer subagent per task/batch + two-stage review). Batches map to the `[P]`

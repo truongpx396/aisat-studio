@@ -1,11 +1,11 @@
 ---
-description: 'Production practices for DevOps and CI/CD: Docker, multi-stage builds, Docker Compose, Makefiles, and GitHub Actions. Build, test, security-scan, and release standards for the AISAT-STUDIO stack (Go, Python/UV, React/Vite).'
+description: 'Production practices for DevOps and CI/CD: Docker, multi-stage builds, Docker Compose, Makefiles, and GitHub Actions. Build, test, security-scan, and release standards for the AISAT-INTEL stack (Go, Python/UV, React/Vite).'
 applyTo: '**/Dockerfile,**/Dockerfile.*,**/*.Dockerfile,**/.dockerignore,**/docker-compose*.yml,**/docker-compose*.yaml,**/compose*.yml,**/compose*.yaml,**/Makefile,**/*.mk,**/.github/workflows/*.yml,**/.github/workflows/*.yaml,**/.github/actions/**'
 ---
 
 # DevOps & CI/CD — Production Practices
 
-Standards for containerizing, building, testing, and releasing AISAT-STUDIO. Applies to
+Standards for containerizing, building, testing, and releasing AISAT-INTEL. Applies to
 Dockerfiles, `.dockerignore`, Compose files, Makefiles, and GitHub Actions workflows across
 the three toolchains: **Go 1.23** (BFF/gateway/kernel, multi-entrypoint `cmd/{api,relay,worker}`),
 **Python 3.12 + UV** (LangGraph RAG, ingestion, MCP), and **React 19 + Vite** (SPA).

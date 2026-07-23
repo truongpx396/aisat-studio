@@ -1,4 +1,4 @@
-# Quickstart & Validation Guide: AISAT-STUDIO MVP (Phase 1)
+# Quickstart & Validation Guide: AISAT-INTEL MVP (Phase 1)
 
 **Date**: 2026-06-06 | **Plan**: [plan.md](./plan.md) | **Spec**: [spec.md](./spec.md)
 
