@@ -131,3 +131,21 @@ sequenceDiagram
 | POST | `/auth/password-reset` | Request/confirm reset | Delegated to the provider where applicable |
 | POST | `/devices/authorize` | Approve a device (browser) | Issues scoped PAT (user+workspace, 90d) (FR-025) |
 | GET / DELETE | `/devices` · `/devices/{id}` | List / revoke connected devices | FR-025 |
+
+---
+
+## Deferred to project Phase 2 (out of scope here)
+
+> Note: the "Phase 1 / Phase 2" labels inside the sequence diagram above are the two **steps of
+> the device flow** (registration, then a metered call) — not project phases. This section is
+> about the project phase.
+>
+> Out of Phase 1 scope (see [spec.md](../spec.md) "Out of Scope"); designed in
+> [draft-plan.md — Agent Access & Accountability](../../draft-plan.md#phase-2--agent-access--accountability).
+>
+> **An agent becomes its own principal.** In Phase 1 a scoped PAT carries the registering
+> member's access, so an agent that needs L2 inherits its owner's L5. Phase 2 gives the agent
+> its own clearance and group grants, resolved at token-mint as `min(agent, owner)` for
+> clearance and the intersection for groups — so demoting the owner or revoking their group
+> removes the agent's access on its next token, with no cleanup job. The PAT flow above is
+> otherwise unchanged.

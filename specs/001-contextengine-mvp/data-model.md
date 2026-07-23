@@ -17,6 +17,7 @@ The authenticating person.
 The tenant boundary and unit of isolation.
 - `id`, `slug` (unique), `name`, `tenant_id`, `owner_id` → User, `created_at`, `updated_at`, `deleted_at`
 - Config (via `product.config.yaml` / settings): `warning_threshold_pct` (default 80, FR-017), `max_upload_bytes` (default 52428800 = 50 MB, FR-003), `default_access_level`, `byok_enabled` (admin toggle, FR-026).
+  - *Phase 2 (deferred):* `clearance_scheme` — the level **count (2–5) and labels** become workspace config so a customer's own scheme replaces the five default names. Only the integer reaches `documents.access_level` and the Qdrant payload, so renaming is display-only; reducing the count requires an explicit per-document remap. See [draft-plan.md — Access model](../draft-plan.md#access-model-decided).
 - Rules: complete isolation — no cross-workspace visibility (FR-014, SC-001).
 - *Phase 2 (deferred):* an `organization` above Workspace becomes the billing entity and the home for SSO/SCIM, the group registry, and policy defaults. Workspace stays the **isolation boundary for content** — that does not change. See [draft-plan.md — Tenancy & Delegated Administration](../draft-plan.md#phase-2--tenancy--delegated-administration).
 

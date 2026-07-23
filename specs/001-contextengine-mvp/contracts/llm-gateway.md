@@ -61,10 +61,19 @@ async def embed(texts: list[str], workspace_id: str) -> list[list[float]]: ...
 
 Both `proxy` and `byok` modes must configure the MCP server to access the knowledge base. The difference is only on the LLM side:
 
-| Mode | LLM calls | MCP tool calls | Moderation | Metering |
-|------|-----------|----------------|------------|----------|
-| **proxy** (default) | `POST /llm/proxy` → this gateway | MCP server `:8002` (server-side, always) | ✅ Node 0 | ✅ credits |
-| **byok** | direct to provider (bypasses gateway) | MCP server `:8002` (server-side, always) | ❌ skipped | ❌ |
+| Mode | Shown to members as | LLM calls | MCP tool calls | Moderation | Metering |
+|------|---------------------|-----------|----------------|------------|----------|
+| **proxy** (default) | *"Use the AISAT gateway"* | `POST /llm/proxy` → this gateway | MCP server `:8002` (server-side, always) | ✅ Node 0 | ✅ credits |
+| **byok** | *"Use your own AI provider"* | direct to provider (bypasses gateway) | MCP server `:8002` (server-side, always) | ❌ skipped | ❌ |
+
+`proxy` / `byok` are the config identifiers; the middle column is the wording every UI surface
+uses. Do not surface the identifiers to members — the choice is framed as a convenience
+(`proxy` means *no API key to obtain or manage*), not as a governance setting. Full copy
+guidance: [design-system agents page](../../../design-system/aisat-studio/pages/agents.md).
+
+**Two modes only, no third.** An agent whose vendor runs its own inference (GitHub Copilot and
+similar, with no endpoint to redirect) is simply `byok` — it reaches the MCP server and never
+calls `/llm/proxy`. It needs no separate mode: every behaviour above is already identical.
 
 **Key invariant**: MCP tool calls are always routed server-side regardless of LLM mode (`research.md §5`). A BYOK agent still gets `allowed_tools` enforcement, RLS-scoped knowledge access, and audit logging — it only loses LLM-level moderation and credit metering. Admins can disable BYOK per workspace.
 
@@ -76,3 +85,18 @@ Configuring only `/llm/proxy` without the MCP server gives governance and meteri
 - A primary-provider timeout fails over exactly once and increments `llm.fallback.count`; a low-quality (but successful) response does **not** fail over (FR-029).
 - `embed` never silently substitutes the fallback model for a live call; the affected item is parked in DLQ (FR-029).
 - A prompt containing an email/token is PII-scrubbed before it appears in any trace/eval store (FR-024).
+
+---
+
+## Phase 2 (out of scope here)
+
+> Out of Phase 1 scope (see [spec.md](../spec.md) "Out of Scope"); designed in
+> [draft-plan.md — Agent Access & Accountability](../../draft-plan.md#phase-2--agent-access--accountability).
+>
+> **Routing is verified, not trusted.** Phase 1 records the mode an agent declared at
+> registration. Phase 2 continuously compares that declaration against observed traffic — this
+> gateway already knows whether calls arrive for a given agent credential — and surfaces a
+> mismatch. The failure it catches is an agent registered as `proxy` whose calls never arrive
+> (most often a provider key still exported in its environment, which takes precedence over
+> `LLM_BASE_URL`): no credits are spent, nothing is moderated, and every screen still reports
+> the agent as metered. Treated as onboarding help, not enforcement.
