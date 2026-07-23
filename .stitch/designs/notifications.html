@@ -62,8 +62,17 @@
         <span class="grid place-items-center h-8 w-8 rounded-lg bg-primary text-[#04210F] font-mono font-bold">A</span>
         <span class="font-mono font-semibold tracking-tight text-gradient">AISAT<span style="-webkit-text-fill-color:#22C55E">·</span>STUDIO</span>
       </div>
+      <!-- Org + workspace switcher. The org line renders only when the org has more than
+           one workspace or an enterprise plan; Organization settings open from here, which
+           is why there is no Organization nav item. -->
       <button class="mx-3 mt-3 flex items-center justify-between rounded-lg border border-line bg-canvas px-3 py-2 text-sm hover:border-slate-500 transition">
-        <span class="flex items-center gap-2"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
+        <span class="flex min-w-0 flex-col items-start gap-0.5">
+          <span class="flex items-center gap-1 truncate text-[10px] uppercase tracking-wider text-muted">
+            <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg>
+            Acme Corp
+          </span>
+          <span class="flex items-center gap-2 text-sm"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
+        </span>
         <svg class="h-4 w-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <nav class="mt-4 flex-1 space-y-1 px-3 text-sm">
@@ -79,7 +88,7 @@
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"/><path d="M12 8v4l3 2"/></svg> Admin</a>
         <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-muted hover:bg-surface2 hover:text-ink transition" href="agents.html">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg> Agents</a>
-        <a class="relative flex items-center gap-3 rounded-lg bg-surface2 px-3 py-2 font-medium text-ink" href="notifications.html">
+        <a class="relative flex items-center gap-3 rounded-lg bg-surface2 px-3 py-2 font-medium text-ink" href="#">
           <span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary"></span>
           <svg class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg> Notifications
           <span class="ml-auto grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 font-mono text-[10px] font-bold text-[#04210F]">3</span></a>
@@ -126,6 +135,7 @@
               <button class="rounded-full border border-line px-2.5 py-1 text-muted hover:text-ink transition">Ingestion</button>
               <button class="rounded-full border border-line px-2.5 py-1 text-muted hover:text-ink transition">Invites &amp; members</button>
               <button class="rounded-full border border-line px-2.5 py-1 text-muted hover:text-ink transition">Credits</button>
+              <button class="rounded-full border border-line px-2.5 py-1 text-muted hover:text-ink transition">Billing <span class="ml-1 rounded bg-slate-600/30 px-1 py-0.5 text-[9px]">Phase 2</span></button>
               <button class="rounded-full border border-line px-2.5 py-1 text-muted hover:text-ink transition">Agents</button>
               <button class="rounded-full border border-line px-2.5 py-1 text-muted hover:text-ink transition">Shares &amp; clearance</button>
             </div>
@@ -176,6 +186,16 @@
           <!-- Yesterday -->
           <p class="mb-2 mt-6 text-[11px] uppercase tracking-wider text-muted">Yesterday</p>
           <div class="overflow-hidden rounded-xl border border-line bg-surface divide-y divide-line">
+
+            <!-- payment failed (read) — Phase 2 billing category -->
+            <a href="credits.html" class="flex gap-3 px-4 py-3.5 transition hover:bg-surface2">
+              <span class="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-danger/15 text-danger"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="m15 15 4 4"/><path d="m19 15-4 4"/></svg></span>
+              <span class="min-w-0 flex-1">
+                <span class="flex items-center gap-2"><span class="text-sm font-medium text-ink">Payment failed — Pro monthly renewal</span><span class="rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] text-muted">Phase 2</span></span>
+                <span class="mt-0.5 block text-sm text-muted">$49.00 could not be charged. Update the payment method to avoid interruption; credits already granted are unaffected.</span>
+                <span class="mt-1 block text-xs text-muted">Billing · 1d ago</span>
+              </span>
+            </a>
 
             <!-- document shared (read) -->
             <a href="library.html" class="flex gap-3 px-4 py-3.5 transition hover:bg-surface2">
@@ -247,6 +267,16 @@
                   <td class="px-5 py-3 text-center"><input type="checkbox" checked class="rounded border-line bg-canvas text-primary focus:ring-primary/30"/></td>
                   <td class="px-5 py-3 text-center"><input type="checkbox" checked class="rounded border-line bg-canvas text-primary focus:ring-primary/30"/></td>
                 </tr>
+                <!-- Billing & payments (Phase 2) — payment_succeeded / payment_failed / subscription_renewed / subscription_canceled -->
+                <tr>
+                  <td class="px-5 py-3">
+                    <span class="flex items-center gap-2 text-ink">Billing &amp; payments <span class="rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] text-muted">Phase 2</span></span>
+                    <span class="block text-xs text-muted">Payment succeeded / failed, subscription renewed / canceled</span>
+                    <span class="block text-[11px] text-muted">Delivered to owners &amp; admins only</span>
+                  </td>
+                  <td class="px-5 py-3 text-center"><input type="checkbox" checked class="rounded border-line bg-canvas text-primary focus:ring-primary/30"/></td>
+                  <td class="px-5 py-3 text-center"><input type="checkbox" checked disabled class="rounded border-line bg-canvas text-primary opacity-60 focus:ring-primary/30" title="Failed-payment email cannot be disabled — losing service over an unseen dunning notice is worse than an unwanted email"/></td>
+                </tr>
                 <tr>
                   <td class="px-5 py-3"><span class="block text-ink">Agent / long-horizon tasks</span><span class="block text-xs text-muted">Task halted at cost cap, finished</span></td>
                   <td class="px-5 py-3 text-center"><input type="checkbox" checked class="rounded border-line bg-canvas text-primary focus:ring-primary/30"/></td>
@@ -265,7 +295,7 @@
               </tbody>
             </table>
           </div>
-          <p class="mt-3 text-xs text-muted">In-app delivery is real-time and independent of email. Email is best-effort and provider-agnostic — transient failures are retried and parked in a dead-letter path (admins can inspect them), never silently dropped. Disabling both channels for a category stops all delivery for it.</p>
+          <p class="mt-3 text-xs text-muted">In-app delivery is real-time and independent of email. Email is best-effort and provider-agnostic — transient failures are retried and parked in a dead-letter path (admins can inspect them), never silently dropped. Disabling both channels for a category stops all delivery for it — with one deliberate exception: <span class="text-ink">failed-payment email cannot be turned off</span>, because a missed dunning notice ends in lost service.</p>
           <div class="mt-4 flex justify-end">
             <button class="rounded-lg btn-gradient px-4 py-1.5 text-sm font-semibold transition cursor-pointer">Save preferences</button>
           </div>

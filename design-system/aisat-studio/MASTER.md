@@ -185,15 +185,19 @@
 
 **Pattern Name:** Persistent Sidebar + Top Bar Dashboard
 
-- **Layout:** Fixed left sidebar (workspace switcher + primary nav), sticky top bar (search, credit meter, notification bell, user menu), scrollable content region. Optional right-hand inspector/debug drawer that slides in.
-- **Navigation:** Sidebar items — Library, Chat, Workspace, Credits, Admin, Agents, Notifications. Active item marked with run-green left accent bar. The Notifications item carries an unread-count badge and mirrors the top-bar bell's count.
+- **Layout:** Fixed left sidebar (org + workspace switcher, then primary nav), sticky top bar (search, credit meter, notification bell, user menu), scrollable content region. Optional right-hand inspector/debug drawer that slides in.
+- **Navigation:** Sidebar items — Library, Chat, Workspace, Credits, Admin, Agents, Notifications. Active item marked with run-green left accent bar. The Notifications item carries an unread-count badge and mirrors the top-bar bell's count. The **Organization** screen (`pages/organization.md`) is intentionally *not* a nav item — it opens from the switcher and is hidden entirely for single-workspace customers.
+- **Shared shell:** the sidebar is generated for every mockup by `.stitch/build.py`; edit it there, not per file (`--check` fails on drift).
 - **Density:** Information-dense but grouped into cards/panels with clear headers; use the spacing scale, not large landing-page gaps.
 - **Global chrome:** Credit balance meter is always visible in the top bar; near-limit (≥80%) turns amber, exhausted turns red. A **notification bell** sits beside the user menu: it shows an unread-count badge and opens a dropdown inbox; the unread count and new items update live over the existing stream (SSE) without a page reload. Full history + per-category delivery preferences live on the dedicated Notifications screen (`pages/notifications.md`).
 
 ### Reusable patterns
 
 - **Status pill:** rounded-full, 12px Fira Code, semantic bg at ~15% opacity + solid text (e.g. `processing` = cyan, `ready` = green, `failed` = red, `queued` = muted).
-- **Clearance badge:** L1–L5 lock badge; higher levels use warmer/stronger accent. Never show documents above the viewer's clearance.
+- **Clearance badge:** lock badge rendered from the workspace `clearance_scheme` (2–5 levels, default 5); higher levels use warmer/stronger accent. Never hardcode a level name — a customer running a 3-tier scheme must never see a label they did not configure. Never show documents above the viewer's clearance.
+- **Group chip** *(Phase 2):* second access axis. Native groups use an info-tinted pill; mirrored groups use a neutral outline plus a source badge (`confluence`, `git`) and are read-only. Rendered as a flat set, never as ladder rungs — groups are unordered, and rank never grants one.
+- **Rating control** *(Phase 2):* thumbs up/down pair in an answer footer; selected up = run-green, selected down = red, re-click clears. Dislike reveals an optional ≤500-char reason. Never show counts or other members' ratings.
+- **Phase chip:** muted pill reading `Phase 2` / `Phase 4`, marking future-phase affordances staged in the mockups so reviewers can separate shipped surface from design intent.
 - **Citation chip:** inline numbered `[1]` chip in run-green that links to the source document/section.
 - **Metric/score:** numeric values, scores, token counts, and credit amounts always set in Fira Code.
 - **Notification bell + badge:** outline bell in the top bar; unread count shown as a small run-green pill (red when any item is `urgent` priority). Empty/zero state hides the badge entirely. Badge count is Fira Code.

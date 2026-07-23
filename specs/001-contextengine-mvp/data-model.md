@@ -17,7 +17,9 @@ The authenticating person.
 The tenant boundary and unit of isolation.
 - `id`, `slug` (unique), `name`, `tenant_id`, `owner_id` → User, `created_at`, `updated_at`, `deleted_at`
 - Config (via `product.config.yaml` / settings): `warning_threshold_pct` (default 80, FR-017), `max_upload_bytes` (default 52428800 = 50 MB, FR-003), `default_access_level`, `byok_enabled` (admin toggle, FR-026).
+  - *Phase 2 (deferred):* `clearance_scheme` — the level **count (2–5) and labels** become workspace config so a customer's own scheme replaces the five default names. Only the integer reaches `documents.access_level` and the Qdrant payload, so renaming is display-only; reducing the count requires an explicit per-document remap. See [draft-plan.md — Access model](../draft-plan.md#access-model-decided).
 - Rules: complete isolation — no cross-workspace visibility (FR-014, SC-001).
+- *Phase 2 (deferred):* an `organization` above Workspace becomes the billing entity and the home for SSO/SCIM, the group registry, and policy defaults. Workspace stays the **isolation boundary for content** — that does not change. See [draft-plan.md — Tenancy & Delegated Administration](../draft-plan.md#phase-2--tenancy--delegated-administration).
 
 ### Workspace Member (K)
 Association of a User to a Workspace.
@@ -61,6 +63,7 @@ Per-metered-call record for cost dashboard. Partitioned by `created_at`.
 ### Agent Policy (P)
 Per-role rules governing tools/budgets/hooks.
 - `agent_policies`: `id`, `workspace_id`, `agent_role` (`user`|`admin`|`automation`|`integration`), `allowed_tools[]` (MCP tool names), `token_budget_day` INT, `max_loop_depth` INT (default 20), `hooks_enabled[]` (`audit`|`langfuse`|`garak`), `created_at`
+  - *Phase 2 (deferred):* a write scope (`can_write` default false, `write_ops`, `write_max_level`, `writable_principals`, `write_artifact_types`) and an agent-owned clearance bounded by its owner's. Phase 1 agents are read-only and act with their registering member's access — see [draft-plan.md — Agent Access & Accountability](../draft-plan.md#phase-2--agent-access--accountability).
 - Rules: allowlist enforced on every dispatch (FR-011/FR-012, injection defense); Phase 1 allowlist is read-only tools only.
 
 ### Audit Record (P + K)
@@ -120,6 +123,7 @@ Two collections: `personal`, `workspace`. Every chunk payload:
 }
 ```
 - Payload indexes: `workspace_id`, `user_id`, `access_level`, `hot`, `tags`.
+- *Phase 2 (deferred):* a second access axis adds `allowed_principals` (TEXT[]) to the payload + payload indexes, filtered by array overlap alongside the existing `access_level` range check. Adding it later is a bulk `set_payload` backfill plus an index build — vectors are unaffected, so **no re-embedding is required**. See [draft-plan.md — Access model (decided)](../draft-plan.md#access-model-decided).
 - **Dual-collection search strategy** — every RAG query searches both collections with different pre-filters, then merges results before reranking:
   - `personal` collection: `must = [workspace_id == ctx, user_id == requester_user_id]` — returns only the requester's own private docs; never any other member's personal docs regardless of clearance level.
   - `workspace` collection: `must = [workspace_id == ctx, access_level <= user_access_level]` — returns shared docs at or below the requester's clearance.
