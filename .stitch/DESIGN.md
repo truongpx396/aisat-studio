@@ -119,7 +119,7 @@ console" canvas with run-green accents that signal active/successful AI work.
 
 ## Layout System
 
-Persistent left **sidebar** (workspace switcher + primary nav: Library, Chat,
+Persistent left **sidebar** (org + workspace switcher, then primary nav: Library, Chat,
 Workspace, Credits, Admin, Agents, Notifications) + sticky **top bar** (search,
 always-visible credit meter, notification bell, user menu) + scrollable content.
 The **Chat** screen adds a right **debug/inspector drawer** that exposes
@@ -133,8 +133,12 @@ which holds history (Inbox) and per-category delivery preferences (Preferences).
 - **Status pill:** `full` radius, `label-caps`, semantic color at ~15% opacity
   fill with solid text — `queued` (muted), `processing/embedding` (cyan),
   `captioning` (amber), `ready` (green), `failed` (red).
-- **Clearance badge:** L1–L5 lock badge in `tertiary` tint; never render content
-  above the viewer's clearance.
+- **Clearance badge:** lock badge in `tertiary` tint rendered from the workspace's
+  `clearance_scheme` (2–5 levels, default 5); never hardcode a level name, and never
+  render content above the viewer's clearance.
+- **Group chip** *(Phase 2)*: the second access axis — `tertiary`-tinted pill for native
+  groups, neutral outline plus a source badge (`confluence`, `git`) for mirrored ones.
+  Always a flat set, never a rung: groups have no ordering.
 - **Citation chip:** inline numbered `[n]` chip in `primary`, links to the source.
 - **Card:** `surface` fill, 1px `outline` border, `md` radius; interactive cards
   add a hover border-lighten (no layout-shifting scale).
@@ -145,12 +149,25 @@ which holds history (Inbox) and per-category delivery preferences (Preferences).
   badge (run-green; red when any item is `urgent`). Opens a `surface-bright`
   dropdown inbox of recent items with a “Mark all read” action and a “View all”
   link to the Notifications screen.
+- **Rating control** *(Phase 2)*: a thumbs-up / thumbs-down pair of 28px outline
+  icon buttons in an answer's footer. Selected up = `primary` border + 15% fill;
+  selected down = `error` border + 15% fill; unselected = `outline` border,
+  `on-surface-variant` icon. Re-clicking the active side clears it. Down-vote
+  reveals an optional reason textarea (≤500 chars, live counter turning `warning`
+  past 450). Never shows counts or other members' ratings.
+- **Phase chip:** a muted `surface-container-highest` pill reading `Phase 2` /
+  `Phase 4`, `label-caps` at 10px. Marks future-phase affordances staged in the
+  mockups so reviewers can separate shipped Phase-1 surface from design intent.
 - **Notification item:** left category icon on a semantic tinted square, a title +
   one-line body (Fira Sans), a relative timestamp (`on-surface-variant`), and a
   run-green unread dot. Unread rows sit on `surface-bright`, read rows on
   `surface`; the whole row deep-links to the originating resource. Category accents:
   ingestion (cyan), invites/members (green), credits (amber→red), agent/task
   (amber), shares/clearance (cyan), broadcast (green).
+
+The **Organization** screen (workspaces, billing, identity, policy) is deliberately
+outside the nav: it is reached from the sidebar switcher, and stays hidden entirely for a
+single-workspace customer.
 
 ## Accessibility & Motion
 

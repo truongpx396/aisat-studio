@@ -98,6 +98,8 @@
       <button @click="chatState = 'empty'"      :class="chatState === 'empty'      ? 'text-primary' : 'text-muted hover:text-ink'">empty results</button>
       <span class="text-line">|</span>
       <button @click="chatState = 'exhausted'"  :class="chatState === 'exhausted'  ? 'text-primary' : 'text-muted hover:text-ink'">credits exhausted</button>
+      <span class="text-line">|</span>
+      <button @click="chatState = 'busy'"       :class="chatState === 'busy'       ? 'text-primary' : 'text-muted hover:text-ink'">service busy <span class="ml-1 rounded bg-slate-600/30 px-1 py-0.5 text-[9px] font-sans">Phase 4</span></button>
     </div>
     <div class="flex flex-1 overflow-hidden">
 
@@ -107,9 +109,17 @@
         <span class="grid place-items-center h-8 w-8 rounded-lg bg-primary text-[#04210F] font-mono font-bold">A</span>
         <span class="font-mono font-semibold tracking-tight text-gradient">AISAT<span style="-webkit-text-fill-color:#22C55E">·</span>STUDIO</span>
       </div>
-      <!-- Workspace switcher -->
+      <!-- Org + workspace switcher. The org line renders only when the org has more than
+           one workspace or an enterprise plan; Organization settings open from here, which
+           is why there is no Organization nav item. -->
       <button class="mx-3 mt-3 flex items-center justify-between rounded-lg border border-line bg-canvas px-3 py-2 text-sm hover:border-slate-500 transition">
-        <span class="flex items-center gap-2"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
+        <span class="flex min-w-0 flex-col items-start gap-0.5">
+          <span class="flex items-center gap-1 truncate text-[10px] uppercase tracking-wider text-muted">
+            <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg>
+            Acme Corp
+          </span>
+          <span class="flex items-center gap-2 text-sm"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
+        </span>
         <svg class="h-4 w-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <nav class="mt-4 flex-1 space-y-1 px-3 text-sm">
@@ -253,6 +263,44 @@
                 </div>
               </div>
 
+              <!-- Response rating (Phase 2) — per answer turn, keyed to llm_call_log_id -->
+              <div class="pt-1" x-data="{ rating: null, reasonOpen: false, reason: '' }">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-[11px] uppercase tracking-wider text-muted">Was this useful?</span>
+                  <span class="rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] text-muted">Phase 2</span>
+                  <div class="flex items-center gap-1">
+                    <button @click="rating = (rating === 'up' ? null : 'up'); reasonOpen = false"
+                      :class="rating === 'up' ? 'border-primary bg-primary/15 text-primary' : 'border-line bg-surface text-muted hover:border-slate-500 hover:text-ink'"
+                      class="grid h-7 w-7 place-items-center rounded-lg border transition cursor-pointer" title="Helpful" aria-label="Rate this answer helpful">
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+                    </button>
+                    <button @click="rating = (rating === 'down' ? null : 'down'); reasonOpen = (rating === 'down')"
+                      :class="rating === 'down' ? 'border-danger bg-danger/15 text-danger' : 'border-line bg-surface text-muted hover:border-slate-500 hover:text-ink'"
+                      class="grid h-7 w-7 place-items-center rounded-lg border transition cursor-pointer" title="Not helpful" aria-label="Rate this answer not helpful">
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>
+                    </button>
+                  </div>
+                  <!-- Saved confirmation — a rating is recorded on click; the reason is optional -->
+                  <span x-show="rating !== null" x-cloak x-transition class="flex items-center gap-1 text-xs text-muted">
+                    <svg class="h-3 w-3 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    Recorded — visible to workspace admins in aggregate only
+                  </span>
+                </div>
+                <!-- Optional reason: offered on dislike only, never required (max 500 chars) -->
+                <div x-show="reasonOpen" x-cloak x-transition class="mt-2 rounded-lg border border-line bg-surface px-3 py-2.5">
+                  <label class="block text-xs text-muted mb-1.5">What was wrong with it? <span class="text-slate-600">(optional)</span></label>
+                  <textarea x-model="reason" maxlength="500" rows="2" placeholder="e.g. cited the wrong quarter, missed the pricing doc…"
+                    class="w-full resize-none rounded-md border border-line bg-canvas px-2.5 py-2 text-sm text-ink placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"></textarea>
+                  <div class="mt-1.5 flex items-center justify-between">
+                    <span class="font-mono text-[11px]" :class="reason.length > 450 ? 'text-warning' : 'text-muted'"><span x-text="reason.length">0</span>/500</span>
+                    <div class="flex items-center gap-2">
+                      <button @click="reasonOpen = false; reason = ''" class="rounded-md px-2 py-1 text-xs text-muted hover:text-ink transition cursor-pointer">Skip</button>
+                      <button @click="reasonOpen = false" class="rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-[#04210F] hover:brightness-110 transition cursor-pointer">Submit</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Suggested follow-ups (FR-031) -->
               <div class="pt-2 space-y-2">
                 <p class="text-[11px] uppercase tracking-wider text-muted flex items-center gap-1.5">
@@ -352,12 +400,30 @@
               </div>
               <div class="flex items-start gap-3 rounded-lg border border-info/25 bg-info/8 px-4 py-3" style="background:rgba(56,189,248,0.07);">
                 <svg class="mt-0.5 h-5 w-5 shrink-0 text-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                <p class="text-sm text-ink leading-relaxed">I searched your workspace but found no documents relevant to your query within your clearance scope (L1–L3). No credits were deducted for retrieval.</p>
+                <p class="text-sm text-ink leading-relaxed">I searched your workspace but found no documents relevant to your query within your access scope — clearance <span class="font-mono">L1–L3</span> and your groups (<span class="font-mono">security</span>, <span class="font-mono">eng-space</span>). No credits were deducted for retrieval.</p>
               </div>
               <!-- Sources strip: 0 matched -->
               <div class="space-y-1 pt-1">
                 <p class="text-[11px] uppercase tracking-wider text-muted">Sources</p>
                 <p class="font-mono text-xs text-muted">0 sources matched</p>
+              </div>
+            </div>
+
+            <!-- STATE: service busy (Phase 4 — SSE ceiling / load shedding, HTTP 503) -->
+            <div class="flex items-start gap-3 rounded-lg border border-info/30 px-4 py-3" style="border-left:3px solid #38BDF8; background:rgba(56,189,248,0.07);" x-show="chatState === 'busy'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0">
+              <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-info/15 text-info">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                  <span class="text-sm font-semibold text-info">Service at capacity — query not started</span>
+                  <span class="rounded-full bg-info/15 px-2 py-0.5 font-mono text-[11px] text-info">503 · retry in 20s</span>
+                </div>
+                <p class="text-sm text-muted">The workspace is shedding load to protect in-flight answers. Nothing was retrieved and <span class="text-ink">no credits were deducted</span>. Your question is still in the composer — resend when the retry timer clears.</p>
+                <button class="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs text-ink hover:border-primary hover:text-primary transition cursor-pointer">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                  Retry now
+                </button>
               </div>
             </div>
 
@@ -373,7 +439,7 @@
                   <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
                 </button>
               </div>
-              <p class="mt-2 px-2 text-xs text-muted">Scoped to <span class="text-ink">your documents + L1–L3 workspace knowledge</span> · est. <span class="font-mono text-ink">~42</span> credits / query</p>
+              <p class="mt-2 px-2 text-xs text-muted">Scoped to <span class="text-ink">your documents + L1–L3 workspace knowledge</span> <span class="text-ink">in</span> <span class="font-mono text-info">security</span><span class="text-slate-500">, </span><span class="font-mono text-info">eng-space</span> <span class="rounded bg-slate-600/30 px-1 py-0.5 text-[10px]">Phase 2</span> · est. <span class="font-mono text-ink">~42</span> credits / query</p>
             </div>
           </div>
 
@@ -420,7 +486,9 @@
 
             <div class="rounded-lg border border-warning/40 bg-warning/10 p-3">
               <p class="text-[11px] uppercase tracking-wider text-warning">Access filter</p>
-              <p class="mt-1 text-xs text-ink"><span class="font-mono">7</span> candidate chunks · <span class="font-mono text-warning">2</span> filtered out above clearance <span class="font-mono">L3</span></p>
+              <p class="mt-1 text-xs text-ink"><span class="font-mono">9</span> candidate chunks · <span class="font-mono text-warning">2</span> filtered out above clearance <span class="font-mono">L3</span></p>
+              <p class="mt-1 text-xs text-ink"><span class="font-mono text-warning">2</span> filtered out by group <span class="rounded bg-slate-600/30 px-1 py-0.5 text-[10px]">Phase 2</span></p>
+              <p class="mt-1 font-mono text-[11px] text-muted">both conjuncts pre-filtered — never post-filtered</p>
             </div>
 
             <div class="rounded-lg border border-line bg-canvas p-3">

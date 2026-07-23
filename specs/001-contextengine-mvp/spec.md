@@ -24,6 +24,11 @@ This specification covers **Phase 1 (Core App)** only. The Evaluation Suite (Pha
 - Q: What is the maximum per-file size for ingestion? → A: An admin-configurable per-file size limit per workspace, defaulting to 50 MB; oversize files are rejected at the boundary with a clear message.
 - Q: How long are raw prompt/response bodies retained before only metadata/aggregates remain? → A: 30 days, after which raw bodies are purged and only PII-scrubbed metadata, hashes, and aggregates are kept.
 
+### Session 2026-07-23
+
+- Q: For a long-horizon task (US7), where does the agent loop actually execute — on the member's machine or on the server? → A: **On the AISAT worker.** A registered local agent supplies the *identity* a task runs under (workspace scope, tool access, routing mode), not the runtime. This is what FR-028's checkpoint/resume and the stale-heartbeat re-queue require: a task whose worker dies is re-queued onto the server-side pool, which is only meaningful for server-side execution. An external agent that drives its own loop against `/llm/proxy` + the MCP server is a *different* interaction and produces no `agent_run` row.
+- Q: Can a bring-your-own-key agent run a long-horizon task? → A: **No — long-horizon tasks require server-routed mode.** The worker executes the loop on AISAT's side and cannot make AI calls with a provider key it does not hold; escrowing a member's key to run background jobs would defeat the purpose of BYOK (FR-026). A BYOK agent can still use every MCP tool by driving its own loop from its own client. Surface this as an ineligible option with the reason, not as a silent failure at run time.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Ingest knowledge into a searchable library (Priority: P1)
@@ -317,3 +322,8 @@ Members receive notifications about workspace activity that concerns them — in
 - Agent actions that modify files or send messages
 - Full evaluation tooling and automated security red-team scanning
 - High-concurrency scale-out & resilience hardening (worker autoscaling, SSE connection ceilings, connection pooling, Qdrant/Redis HA, load testing) — deferred to **Phase 4**; see [draft-plan.md — Phase 4](../draft-plan.md#phase-4-scalability-and-resilience-hardening)
+- Per-answer thumbs up/down rating and the workspace satisfaction metric — **Phase 2**; see [draft-plan.md — AI Response Rating](../draft-plan.md#phase-2--ai-response-rating-thumbs-up--down)
+- Typed artifacts, the knowledge graph (`knowledge_edges`), the agent registry, and external connectors (Git/Jira/Confluence) — **Phase 2**; see [draft-plan.md — Enterprise Knowledge Layer](../draft-plan.md#phase-2--enterprise-knowledge-layer-typed-artifacts-knowledge-graph--agent-context-api)
+- **A second access axis.** Phase 1 access control is the L1–L5 clearance ladder plus personal scope, and that is the whole model. Group/principal ACLs (`allowed_principals`), configurable clearance labels, and delegated group administration are **Phase 2**; see [draft-plan.md — Access model (decided)](../draft-plan.md#access-model-decided). Phase 1 stores `access_level` as an integer and never persists a level *name*, so adding labels later is a display change only.
+- An `organization` above Workspace (consolidated billing, org-wide SSO/SCIM, policy defaults) — **Phase 2**; Phase 1 treats Workspace as both the isolation boundary and the billing entity. See [draft-plan.md — Tenancy & Delegated Administration](../draft-plan.md#phase-2--tenancy--delegated-administration)
+- Agents as independent principals (own clearance/groups bounded by their owner), agent write scope, and resource-level (`operation` + `resource_id`) audit rows — **Phase 2**; see [draft-plan.md — Agent Access & Accountability](../draft-plan.md#phase-2--agent-access--accountability). Phase 1 agents act with their registering member's access and every MCP tool is read-only (FR-012).

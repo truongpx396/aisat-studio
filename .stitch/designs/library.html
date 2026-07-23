@@ -71,10 +71,19 @@
     <aside class="hidden md:flex w-60 shrink-0 flex-col border-r border-line bg-surface sidebar-texture">
       <div class="flex items-center gap-2 px-5 h-16 border-b border-line">
         <span class="grid place-items-center h-8 w-8 rounded-lg bg-primary text-[#04210F] font-mono font-bold">A</span>
-        <span class="font-mono font-semibold tracking-tight text-gradient">AISAT<span class="text-fill-primary">·</span>STUDIO</span>
+        <span class="font-mono font-semibold tracking-tight text-gradient">AISAT<span style="-webkit-text-fill-color:#22C55E">·</span>STUDIO</span>
       </div>
+      <!-- Org + workspace switcher. The org line renders only when the org has more than
+           one workspace or an enterprise plan; Organization settings open from here, which
+           is why there is no Organization nav item. -->
       <button class="mx-3 mt-3 flex items-center justify-between rounded-lg border border-line bg-canvas px-3 py-2 text-sm hover:border-slate-500 transition">
-        <span class="flex items-center gap-2"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
+        <span class="flex min-w-0 flex-col items-start gap-0.5">
+          <span class="flex items-center gap-1 truncate text-[10px] uppercase tracking-wider text-muted">
+            <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg>
+            Acme Corp
+          </span>
+          <span class="flex items-center gap-2 text-sm"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
+        </span>
         <svg class="h-4 w-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <nav class="mt-4 flex-1 space-y-1 px-3 text-sm">
@@ -98,9 +107,26 @@
     </aside>
 
     <!-- Main -->
-    <div class="flex flex-1 flex-col min-w-0">
+    <div class="flex flex-1 flex-col min-w-0" x-data="{
+        libTab: 'documents',
+        myLevel: 3,
+        // Rendered from the workspace clearance_scheme config — no level name is hardcoded
+        levels: [
+          { n: 1, label: 'Public',       desc: 'visible to everyone in the workspace' },
+          { n: 2, label: 'Restricted',   desc: 'contractors & above' },
+          { n: 3, label: 'Internal',     desc: 'full-time team & above' },
+          { n: 4, label: 'Confidential', desc: 'senior leadership' },
+          { n: 5, label: 'Executive',    desc: 'exec & board only' }
+        ],
+        get myLabel() { const l = this.levels.find(x => x.n === this.myLevel); return l ? l.label : '' }
+      }">
       <header class="flex h-16 shrink-0 items-center gap-4 border-b border-line bg-canvas/80 px-5 backdrop-blur">
         <h1 class="text-lg font-semibold text-gradient">Library</h1>
+        <!-- Tab shell (Phase 2) — Documents is the Phase-1 surface; Mind Map renders persisted knowledge_edges -->
+        <nav class="flex gap-1 text-sm">
+          <button @click="libTab = 'documents'" :class="libTab === 'documents' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Documents</button>
+          <button @click="libTab = 'mindmap'" :class="libTab === 'mindmap' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Mind Map <span class="ml-1 rounded bg-slate-600/30 px-1 py-0.5 text-[9px]">Phase 2</span></button>
+        </nav>
         <div class="relative ml-auto max-w-md flex-1 hidden sm:block">
           <svg class="absolute left-3 top-2.5 h-4 w-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <input class="w-full rounded-lg border border-line bg-surface py-2 pl-9 pr-3 text-sm placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Search documents…"/>
@@ -142,7 +168,7 @@
         </div>
       </header>
 
-      <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+      <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6" x-show="libTab === 'documents'">
 
         <!-- Ingest zone -->
         <section class="grid gap-4 lg:grid-cols-3">
@@ -165,27 +191,63 @@
             <div class="space-y-1.5">
               <label class="block text-xs font-medium text-muted">Sharing / access level</label>
               <select class="select-chevron bg-canvas border border-line rounded-lg px-3 py-2 text-sm w-full text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer">
-                <option value="personal">🔒 Personal (only you)</option>
-                <option value="L1">L1 · Public (all workspace members)</option>
-                <option value="L2">L2 · Restricted (clearance L2+)</option>
-                <option value="L3" selected>L3 · Internal (clearance L3+)</option>
+                <option value="personal">Personal — only you</option>
+                <template x-for="lvl in levels.filter(l => l.n <= myLevel)" :key="lvl.n">
+                  <option :value="'L' + lvl.n" :selected="lvl.n === myLevel" x-text="'L' + lvl.n + ' · ' + lvl.label + ' (clearance L' + lvl.n + '+)'"></option>
+                </template>
               </select>
-              <p class="text-[11px] text-muted">Capped at your clearance <span class="font-mono text-ink">L3 · Internal</span>. Defaults to your level.</p>
+              <p class="text-[11px] text-muted">Capped at your clearance <span class="font-mono text-ink">L<span x-text="myLevel"></span> · <span x-text="myLabel"></span></span>. Defaults to your level.</p>
             </div>
             <!-- END FIX: access level selector -->
+
+            <!-- Group restriction (Phase 2) — second access axis; narrows, never widens -->
+            <div class="space-y-1.5" x-data="{ groups: [], toggle(g) { this.groups.includes(g) ? this.groups.splice(this.groups.indexOf(g), 1) : this.groups.push(g) } }">
+              <label class="flex items-center gap-2 text-xs font-medium text-muted">
+                Restrict to groups
+                <span class="font-normal text-slate-500">(optional)</span>
+                <span class="rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] font-normal">Phase 2</span>
+              </label>
+              <div class="flex flex-wrap gap-1.5">
+                <button type="button" @click="toggle('security')"
+                  :class="groups.includes('security') ? 'border-info/50 bg-info/15 text-info' : 'border-line bg-canvas text-muted hover:border-slate-500 hover:text-ink'"
+                  class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] transition cursor-pointer">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                  security
+                </button>
+                <button type="button" @click="toggle('eng-space')"
+                  :class="groups.includes('eng-space') ? 'border-info/50 bg-info/15 text-info' : 'border-line bg-canvas text-muted hover:border-slate-500 hover:text-ink'"
+                  class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] transition cursor-pointer">
+                  eng-space <span class="rounded bg-slate-600/40 px-1 py-0.5 text-[9px] font-sans">confluence</span>
+                </button>
+                <button type="button" @click="toggle('platform-team')"
+                  :class="groups.includes('platform-team') ? 'border-info/50 bg-info/15 text-info' : 'border-line bg-canvas text-muted hover:border-slate-500 hover:text-ink'"
+                  class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] transition cursor-pointer">
+                  platform-team <span class="rounded bg-slate-600/40 px-1 py-0.5 text-[9px] font-sans">git</span>
+                </button>
+              </div>
+              <!-- Live effect summary — the two axes are hard to reason about in the abstract -->
+              <p class="text-[11px] text-muted">
+                <span class="text-ink">Visible to:</span>
+                <span x-show="groups.length === 0">members with clearance <span class="font-mono text-ink">L3+</span>.</span>
+                <span x-show="groups.length > 0" x-cloak>members with clearance <span class="font-mono text-ink">L3+</span> <span class="text-ink">who are also in</span> <span class="font-mono text-info" x-text="groups.join(' or ')"></span>.</span>
+              </p>
+              <p class="text-[11px] text-slate-500">Only groups you belong to are listed. Leaving this empty means clearance alone governs.</p>
+            </div>
             <div class="rounded-xl border border-line bg-surface px-4 py-3 text-xs text-muted space-y-1.5">
               <p><span class="font-medium text-ink">Sharing rule:</span> the level tag = minimum clearance needed to see your doc.</p>
               <ul class="ml-3 space-y-0.5">
                 <li><span class="font-mono text-ink">Personal</span> &mdash; only you, never shared <span class="text-slate-500">(fully private)</span></li>
-                <li><span class="font-mono text-ink">L1</span> &mdash; visible to everyone in the workspace</li>
-                <li><span class="font-mono text-ink">L2</span> &mdash; contractors &amp; above</li>
-                <li><span class="font-mono text-ink">L3</span> &mdash; full-time team &amp; above <span class="text-slate-500">(your default)</span></li>
-                <!-- FIX: L4/L5 clearance levels -->
-                <li><span class="font-mono text-warning">L4 · Confidential</span> &mdash; clearance L4+ <span class="text-slate-500">(senior leadership)</span></li>
-                <li><span class="font-mono text-danger">L5 · Executive</span> &mdash; clearance L5+ <span class="text-slate-500">(exec &amp; board only)</span></li>
-                <!-- END FIX: L4/L5 clearance levels -->
+                <template x-for="lvl in levels" :key="lvl.n">
+                  <li>
+                    <span class="font-mono" :class="lvl.n > myLevel ? 'text-slate-500' : 'text-ink'">L<span x-text="lvl.n"></span></span>
+                    &mdash; <span x-text="lvl.desc"></span>
+                    <span x-show="lvl.n === myLevel" class="text-slate-500">(your default)</span>
+                    <span x-show="lvl.n > myLevel" class="text-slate-500">(above your clearance)</span>
+                  </li>
+                </template>
               </ul>
               <p>New uploads default to your clearance <span class="font-mono text-ink">(L3)</span>. You can lower it to share more widely, or set <span class="font-mono text-ink">Personal</span> to keep it private to yourself only.</p>
+              <p class="border-t border-line pt-1.5"><span class="font-medium text-ink">Groups are a second, independent check <span class="rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] font-normal text-muted">Phase 2</span></span> — they only ever <span class="text-ink">narrow</span> who can see a document, never widen it. A doc tagged <span class="font-mono text-ink">L1</span> + <span class="font-mono text-ink">security</span> is <span class="text-ink">not</span> public: it is visible only to members of <span class="font-mono text-ink">security</span>. A higher clearance never substitutes for group membership.</p>
             </div>
           </div>
         </section>
@@ -285,6 +347,18 @@
             <button @click="type = 'images'" :class="type === 'images' ? 'bg-primary/15 text-primary font-medium' : 'border border-line text-muted hover:text-ink'" class="rounded-full px-3 py-1 transition-all">Images</button>
             <button @click="type = 'notes'" :class="type === 'notes' ? 'bg-primary/15 text-primary font-medium' : 'border border-line text-muted hover:text-ink'" class="rounded-full px-3 py-1 transition-all">Notes</button>
           </div>
+          <span class="hidden lg:block h-4 w-px bg-line"></span>
+          <!-- Typed-artifact facets (Phase 2) — same table as documents, so same browser -->
+          <span class="text-muted">Type <span class="rounded bg-slate-600/30 px-1 py-0.5 text-[9px]">Phase 2</span>:</span>
+          <select class="select-chevron appearance-none rounded-full border border-line bg-canvas px-3 py-1 text-xs text-muted focus:border-primary focus:outline-none">
+            <option>All artifact types</option><option>biz_rule</option><option>requirement</option><option>spec</option><option>agent_def</option><option>system_design</option>
+          </select>
+          <select class="select-chevron appearance-none rounded-full border border-line bg-canvas px-3 py-1 text-xs text-muted focus:border-primary focus:outline-none">
+            <option>Any origin</option><option>authored</option><option>mirrored</option>
+          </select>
+          <select class="select-chevron appearance-none rounded-full border border-line bg-canvas px-3 py-1 text-xs text-muted focus:border-primary focus:outline-none">
+            <option>Any lifecycle</option><option>draft</option><option>active</option><option>deprecated</option><option>superseded</option>
+          </select>
           <span class="ml-auto text-xs text-muted">142 documents · scoped to your clearance</span>
         </div>
 
@@ -299,6 +373,7 @@
                 <span class="rounded-full bg-primary/15 text-primary text-[10px] font-mono px-1.5 py-0.5">ready</span>
                 <!-- END FIX: status badge -->
                 <span class="rounded bg-info/15 px-1.5 py-0.5 font-mono text-[10px] text-info">L3 · Internal</span>
+                <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] border border-info/40 bg-info/10 text-info" title="Group-restricted: also requires membership in this group"><svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>security</span>
               </div>
             </div>
             <h3 class="mt-3 truncate text-sm font-medium">Q3-FY26 Board Deck.pdf</h3>
@@ -400,6 +475,141 @@
             </div>
           </article>
         </section>
+      </div>
+
+      <!-- ============ TAB PANEL: Mind Map (Phase 2) ============
+           Renders persisted knowledge_edges — the Enterprise Knowledge Layer owns the
+           edge model, this tab is the renderer over it. -->
+      <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4" x-show="libTab === 'mindmap'" x-cloak
+           x-data="{ sel: 'seed', nodes: {
+             seed:   { label: 'Q3 revenue drivers', kind: 'topic',    level: '—',  score: '—',    prov: 'seed',              conf: '—',    snip: 'Query seed. Neighbours are retrieved with the same hybrid search and clearance pre-filter as chat.' },
+             board:  { label: 'Q3-FY26 Board Deck.pdf', kind: 'document', level: 'L3 · Internal', score: '0.91', prov: 'llm_inferred', conf: '0.88', snip: '\u201cEnterprise net-new ARR contributed 11pts of the 18% growth\u2026\u201d' },
+             price:  { label: 'Pricing-Experiment-Results.docx', kind: 'document', level: 'L2 · Restricted', score: '0.87', prov: 'declared_in_source', conf: '1.00', snip: '\u201cUsage-based tier lifted NRR from 108% to 121%\u2026\u201d' },
+             onboard:{ label: 'onboarding-revamp-retro', kind: 'note', level: 'L2 · Restricted', score: '0.74', prov: 'llm_inferred', conf: '0.71', snip: '\u201c30-day churn dropped 2.4pts after the guided setup launch\u2026\u201d' },
+             nrr:    { label: 'Net revenue retention', kind: 'topic', level: '—', score: '0.69', prov: 'llm_inferred', conf: '0.66', snip: 'Extracted entity shared by 4 retrieved chunks.' },
+             spec:   { label: 'pricing-tier.spec.md', kind: 'artifact', level: 'L3 · Internal', score: '0.66', prov: 'declared_in_source', conf: '1.00', snip: 'Mirrored from git @ acme/platform \u2014 stale since commit 7f21ac.' }
+           } }">
+
+        <!-- Seed + toolbar -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative min-w-[220px] flex-1 max-w-md">
+            <svg class="absolute left-3 top-2.5 h-4 w-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input value="Q3 revenue drivers" class="w-full rounded-lg border border-line bg-surface py-2 pl-9 pr-3 text-sm text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Seed from a topic, document, or note\u2026"/>
+          </div>
+          <button class="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs hover:border-primary hover:text-primary transition cursor-pointer">Expand</button>
+          <button class="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs hover:border-primary hover:text-primary transition cursor-pointer">Collapse subtree</button>
+          <button class="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs hover:border-primary hover:text-primary transition cursor-pointer">Save layout</button>
+          <button class="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs hover:border-primary hover:text-primary transition cursor-pointer">Export</button>
+          <span class="ml-auto flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 font-mono text-[11px] text-muted">
+            <span class="h-1.5 w-1.5 rounded-full bg-primary"></span>6 / 200 nodes
+          </span>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-3">
+          <!-- Graph canvas -->
+          <div class="lg:col-span-2 rounded-xl border border-line bg-surface p-2">
+            <svg viewBox="0 0 800 430" class="w-full" style="min-height:340px">
+              <!-- edges: stroke-width encodes weight -->
+              <g stroke="#334155" fill="none">
+                <line x1="400" y1="215" x2="190" y2="105" stroke-width="3"/>
+                <line x1="400" y1="215" x2="620" y2="105" stroke-width="2.6"/>
+                <line x1="400" y1="215" x2="190" y2="330" stroke-width="1.8"/>
+                <line x1="400" y1="215" x2="630" y2="330" stroke-width="1.5"/>
+                <line x1="400" y1="215" x2="400" y2="378" stroke-width="1.4" stroke-dasharray="4 3"/>
+                <line x1="620" y1="105" x2="630" y2="330" stroke-width="1.2" stroke-dasharray="4 3"/>
+              </g>
+              <!-- edge labels -->
+              <g font-family="Fira Code, monospace" font-size="10" fill="#94A3B8">
+                <text x="285" y="152">cites · 0.91</text>
+                <text x="500" y="152">cites · 0.87</text>
+                <text x="272" y="285">derived_from</text>
+                <text x="505" y="285">relates · 0.69</text>
+                <text x="410" y="300">declared_in_source</text>
+              </g>
+
+              <!-- seed node -->
+              <g @click="sel = 'seed'" style="cursor:pointer">
+                <rect x="320" y="192" width="160" height="46" rx="10" fill="#14361F" :stroke="sel === 'seed' ? '#22C55E' : '#334155'" stroke-width="2"/>
+                <circle cx="340" cy="215" r="4" fill="#FBBF24"/>
+                <text x="354" y="219" font-family="Fira Sans, sans-serif" font-size="13" fill="#F8FAFC">Q3 revenue drivers</text>
+              </g>
+              <!-- document nodes -->
+              <g @click="sel = 'board'" style="cursor:pointer">
+                <rect x="60" y="84" width="230" height="44" rx="10" fill="#1E293B" :stroke="sel === 'board' ? '#22C55E' : '#334155'" stroke-width="1.5"/>
+                <circle cx="80" cy="106" r="4" fill="#38BDF8"/>
+                <text x="94" y="103" font-family="Fira Sans, sans-serif" font-size="12" fill="#F8FAFC">Q3-FY26 Board Deck.pdf</text>
+                <text x="94" y="118" font-family="Fira Code, monospace" font-size="9" fill="#94A3B8">L3 · Internal</text>
+              </g>
+              <g @click="sel = 'price'" style="cursor:pointer">
+                <rect x="520" y="84" width="230" height="44" rx="10" fill="#1E293B" :stroke="sel === 'price' ? '#22C55E' : '#334155'" stroke-width="1.5"/>
+                <circle cx="540" cy="106" r="4" fill="#38BDF8"/>
+                <text x="554" y="103" font-family="Fira Sans, sans-serif" font-size="12" fill="#F8FAFC">Pricing-Experiment.docx</text>
+                <text x="554" y="118" font-family="Fira Code, monospace" font-size="9" fill="#94A3B8">L2 · Restricted</text>
+              </g>
+              <g @click="sel = 'onboard'" style="cursor:pointer">
+                <rect x="60" y="308" width="230" height="44" rx="10" fill="#1E293B" :stroke="sel === 'onboard' ? '#22C55E' : '#334155'" stroke-width="1.5"/>
+                <circle cx="80" cy="330" r="4" fill="#22C55E"/>
+                <text x="94" y="327" font-family="Fira Sans, sans-serif" font-size="12" fill="#F8FAFC">onboarding-revamp-retro</text>
+                <text x="94" y="342" font-family="Fira Code, monospace" font-size="9" fill="#94A3B8">note · L2 · Restricted</text>
+              </g>
+              <g @click="sel = 'nrr'" style="cursor:pointer">
+                <rect x="530" y="308" width="200" height="44" rx="10" fill="#1E293B" :stroke="sel === 'nrr' ? '#22C55E' : '#334155'" stroke-width="1.5"/>
+                <circle cx="550" cy="330" r="4" fill="#FBBF24"/>
+                <text x="564" y="327" font-family="Fira Sans, sans-serif" font-size="12" fill="#F8FAFC">Net revenue retention</text>
+                <text x="564" y="342" font-family="Fira Code, monospace" font-size="9" fill="#94A3B8">topic · entity</text>
+              </g>
+              <g @click="sel = 'spec'" style="cursor:pointer">
+                <rect x="285" y="356" width="230" height="44" rx="10" fill="#1E293B" :stroke="sel === 'spec' ? '#22C55E' : '#334155'" stroke-width="1.5"/>
+                <circle cx="305" cy="378" r="4" fill="#38BDF8"/>
+                <text x="319" y="375" font-family="Fira Sans, sans-serif" font-size="12" fill="#F8FAFC">pricing-tier.spec.md</text>
+                <text x="319" y="390" font-family="Fira Code, monospace" font-size="9" fill="#FBBF24">mirrored · stale</text>
+              </g>
+            </svg>
+            <div class="flex flex-wrap items-center gap-3 border-t border-line px-3 py-2 text-[11px] text-muted">
+              <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-info"></span>document / artifact</span>
+              <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-primary"></span>note</span>
+              <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-warning"></span>topic / entity</span>
+              <span class="flex items-center gap-1.5"><svg class="h-3 w-6" viewBox="0 0 24 4"><line x1="0" y1="2" x2="24" y2="2" stroke="#334155" stroke-width="3"/></svg>thicker = stronger evidence</span>
+              <span class="flex items-center gap-1.5"><svg class="h-3 w-6" viewBox="0 0 24 4"><line x1="0" y1="2" x2="24" y2="2" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 3"/></svg>inferred</span>
+            </div>
+          </div>
+
+          <!-- Inspector -->
+          <div class="space-y-3">
+            <div class="rounded-xl border border-line bg-surface p-4">
+              <p class="text-[11px] uppercase tracking-wider text-muted">Selected</p>
+              <p class="mt-1.5 text-sm font-medium text-ink" x-text="nodes[sel].label"></p>
+              <dl class="mt-3 space-y-1.5 text-xs">
+                <div class="flex justify-between"><dt class="text-muted">Kind</dt><dd class="font-mono text-ink" x-text="nodes[sel].kind"></dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Clearance</dt><dd class="font-mono text-ink" x-text="nodes[sel].level"></dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Retrieval score</dt><dd class="font-mono text-ink" x-text="nodes[sel].score"></dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Edge provenance</dt><dd class="font-mono text-ink" x-text="nodes[sel].prov"></dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Confidence</dt><dd class="font-mono text-ink" x-text="nodes[sel].conf"></dd></div>
+              </dl>
+              <p class="mt-3 rounded-lg border border-line bg-canvas px-3 py-2 text-[11px] leading-relaxed text-muted" x-text="nodes[sel].snip"></p>
+              <div class="mt-3 flex gap-2">
+                <button class="flex-1 rounded-lg border border-line bg-surface2 px-3 py-1.5 text-xs font-medium hover:border-slate-500 transition cursor-pointer">Open source</button>
+                <button class="rounded-lg border border-line px-3 py-1.5 text-xs text-muted hover:text-ink transition cursor-pointer">Expand</button>
+              </div>
+            </div>
+
+            <!-- Debug panel, consistent with chat -->
+            <div class="rounded-xl border border-line bg-surface p-4 space-y-2.5">
+              <p class="text-[11px] uppercase tracking-wider text-muted">Debug</p>
+              <div class="flex justify-between text-xs"><span class="text-muted">Edge threshold</span><span class="font-mono text-ink">≥ 0.65 cosine</span></div>
+              <div class="flex justify-between text-xs"><span class="text-muted">Candidates</span><span class="font-mono text-ink">24 → 6 kept</span></div>
+              <div class="flex justify-between text-xs"><span class="text-muted">Filtered by clearance</span><span class="font-mono text-warning">3</span></div>
+              <div class="flex justify-between text-xs"><span class="text-muted">Filtered by group</span><span class="font-mono text-warning">2</span></div>
+              <div class="flex justify-between text-xs"><span class="text-muted">Label generation</span><span class="font-mono text-muted">off</span></div>
+              <div class="flex justify-between text-xs"><span class="text-muted">Credits spent</span><span class="font-mono text-danger">−18</span></div>
+            </div>
+
+            <p class="rounded-xl border border-line bg-surface px-4 py-3 text-[11px] leading-relaxed text-muted">
+              <span class="font-medium text-ink">No fabricated edges.</span> Every relationship comes from a retrieval result, a reference declared in the source, or an explicit human link — each carries its provenance and confidence above.
+              <span class="mt-1.5 block"><span class="font-medium text-ink">Nodes you cannot access are omitted, not locked.</span> A greyed-out node would leak that the document exists.</span>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   </div>

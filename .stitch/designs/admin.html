@@ -63,8 +63,17 @@
         <span class="grid place-items-center h-8 w-8 rounded-lg bg-primary text-[#04210F] font-mono font-bold">A</span>
         <span class="font-mono font-semibold tracking-tight text-gradient">AISAT<span style="-webkit-text-fill-color:#22C55E">·</span>STUDIO</span>
       </div>
+      <!-- Org + workspace switcher. The org line renders only when the org has more than
+           one workspace or an enterprise plan; Organization settings open from here, which
+           is why there is no Organization nav item. -->
       <button class="mx-3 mt-3 flex items-center justify-between rounded-lg border border-line bg-canvas px-3 py-2 text-sm hover:border-slate-500 transition">
-        <span class="flex items-center gap-2"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
+        <span class="flex min-w-0 flex-col items-start gap-0.5">
+          <span class="flex items-center gap-1 truncate text-[10px] uppercase tracking-wider text-muted">
+            <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg>
+            Acme Corp
+          </span>
+          <span class="flex items-center gap-2 text-sm"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
+        </span>
         <svg class="h-4 w-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <nav class="mt-4 flex-1 space-y-1 px-3 text-sm">
@@ -94,6 +103,8 @@
         <nav class="ml-4 flex gap-1 text-sm">
           <button @click="tab = 'usage'" :class="tab === 'usage' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Usage</button>
           <button @click="tab = 'members'" :class="tab === 'members' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Members</button>
+          <button @click="tab = 'groups'" :class="tab === 'groups' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Groups <span class="ml-1 rounded bg-slate-600/30 px-1 py-0.5 text-[9px]">Phase 2</span></button>
+          <button @click="tab = 'knowledge'" :class="tab === 'knowledge' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Knowledge <span class="ml-1 rounded bg-slate-600/30 px-1 py-0.5 text-[9px]">Phase 2</span></button>
           <button @click="tab = 'broadcast'" :class="tab === 'broadcast' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Broadcast</button>
           <button @click="tab = 'audit'" :class="tab === 'audit' ? 'rounded-lg bg-surface2 px-3 py-1.5 font-medium' : 'rounded-lg px-3 py-1.5 text-muted hover:text-ink'">Audit</button>
         </nav>
@@ -138,8 +149,16 @@
         <!-- TAB PANEL: Usage -->
         <div x-show="tab === 'usage'" class="space-y-6" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
 
+        <!-- Satisfaction below threshold (Phase 2) — fires when response_rating_daily.satisfaction_pct < configured floor -->
+        <div class="flex flex-wrap items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-sm text-warning">
+          <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>Answer satisfaction is <span class="font-mono">72%</span>, below the <span class="font-mono">80%</span> threshold for this workspace.</span>
+          <span class="rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] text-muted">Phase 2</span>
+          <button class="ml-auto shrink-0 rounded-lg border border-warning/40 px-3 py-1 text-xs font-medium hover:bg-warning/10 transition cursor-pointer">Review disliked answers</button>
+        </div>
+
         <!-- KPI cards -->
-        <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <div class="rounded-xl border border-line bg-surface p-4">
             <p class="text-[11px] uppercase tracking-wider text-muted">Credits used · 30d <span class="text-slate-600 normal-case">(workspace)</span></p>
             <p class="mt-2 font-mono text-2xl font-semibold">57,520</p>
@@ -155,6 +174,16 @@
           <div class="rounded-xl border border-line bg-surface p-4">
             <p class="text-[11px] uppercase tracking-wider text-muted">Fallback-provider hits <span class="text-slate-600 normal-case">(workspace)</span></p>
             <p class="mt-2 font-mono text-2xl font-semibold text-warning">12</p>
+          </div>
+          <!-- Satisfaction (Phase 2) — from response_rating_daily -->
+          <div class="rounded-xl border border-warning/30 bg-surface p-4">
+            <p class="text-[11px] uppercase tracking-wider text-muted">Satisfaction · 30d <span class="ml-1 rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] normal-case tracking-normal">Phase 2</span></p>
+            <p class="mt-2 font-mono text-2xl font-semibold text-warning">72<span class="text-base text-muted">%</span></p>
+            <p class="mt-1 flex items-center gap-2.5 font-mono text-[11px] text-muted">
+              <span class="flex items-center gap-1 text-primary"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>184</span>
+              <span class="flex items-center gap-1 text-danger"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>72</span>
+              <span class="text-muted">of 1,240 rated</span>
+            </p>
           </div>
         </section>
 
@@ -281,7 +310,7 @@
         <section class="rounded-xl border border-line bg-surface">
           <div class="flex items-center justify-between border-b border-line px-5 py-3">
             <p class="text-sm font-medium">Audit trail</p>
-            <span class="text-xs text-muted">PII-scrubbed · raw bodies retained 30 days</span>
+            <span class="text-xs text-muted">PII-scrubbed · raw bodies retained 30 days · agent owners can see their own agent's activity without being an admin</span>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -402,6 +431,256 @@
         </section>
         </div><!-- end TAB PANEL: Members -->
 
+
+        <!-- TAB PANEL: Groups (Phase 2) — second access axis. Administration only: role grants
+             the ability to manage membership, never the ability to read the group's content. -->
+        <div x-show="tab === 'groups'" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+        <section class="space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="flex items-center gap-2 text-base font-semibold">Groups <span class="font-mono text-sm text-muted">(3)</span> <span class="rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] font-normal text-muted">Phase 2</span></h2>
+              <p class="mt-0.5 text-xs text-muted">The second access axis — a document is visible only when clearance <span class="text-ink">and</span> group both pass.</p>
+            </div>
+            <button class="flex items-center gap-2 rounded-lg btn-gradient px-4 py-2 text-sm font-semibold transition cursor-pointer">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              New group
+            </button>
+          </div>
+
+          <!-- The rule that makes this screen safe to hand to an admin -->
+          <div class="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3">
+            <svg class="mt-0.5 h-4 w-4 shrink-0 text-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <p class="text-xs leading-relaxed text-muted"><span class="font-medium text-ink">Administering a group is not membership of it.</span> You can create groups and grant or revoke members here without being able to read the documents inside them. Being an owner or admin never implies access — if you need to read group-restricted content, request a grant or use break-glass, which is time-boxed, reason-required and audited.</p>
+          </div>
+
+          <div class="rounded-xl border border-line bg-surface">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="text-left text-[11px] uppercase tracking-wider text-muted">
+                  <tr class="border-b border-line">
+                    <th class="px-5 py-2 font-medium">Group</th>
+                    <th class="px-5 py-2 font-medium">Origin</th>
+                    <th class="px-5 py-2 font-medium text-right">Members</th>
+                    <th class="px-5 py-2 font-medium text-right">Documents</th>
+                    <th class="px-5 py-2 font-medium">Owner</th>
+                    <th class="px-5 py-2 font-medium">Your membership</th>
+                    <th class="px-5 py-2 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="border-b border-line/60">
+                    <td class="px-5 py-3"><span class="font-mono text-xs text-info">group:security</span><span class="block text-xs text-muted">Security &amp; incident response</span></td>
+                    <td class="px-5 py-3"><span class="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[10px] text-primary">native</span></td>
+                    <td class="px-5 py-3 text-right font-mono text-xs">4</td>
+                    <td class="px-5 py-3 text-right font-mono text-xs">37</td>
+                    <td class="px-5 py-3"><span class="text-xs">Mina K.</span><span class="block text-[11px] text-muted">delegated owner</span></td>
+                    <td class="px-5 py-3"><span class="font-mono text-[11px] text-primary">member</span></td>
+                    <td class="px-5 py-3 text-right"><button class="text-xs text-primary hover:underline cursor-pointer">Manage members</button></td>
+                  </tr>
+                  <tr class="border-b border-line/60">
+                    <td class="px-5 py-3"><span class="font-mono text-xs text-muted">ext:confluence:eng-space</span><span class="block text-xs text-muted">Engineering space</span></td>
+                    <td class="px-5 py-3"><span class="rounded-full bg-slate-600/30 px-2 py-0.5 font-mono text-[10px] text-muted">confluence</span></td>
+                    <td class="px-5 py-3 text-right font-mono text-xs">12</td>
+                    <td class="px-5 py-3 text-right font-mono text-xs">418</td>
+                    <td class="px-5 py-3"><span class="text-xs text-slate-500">—</span></td>
+                    <td class="px-5 py-3"><span class="font-mono text-[11px] text-primary">member</span></td>
+                    <td class="px-5 py-3 text-right"><span class="text-xs text-slate-500" title="Membership is owned by the source system — editing it here would silently diverge from Confluence">managed in Confluence</span></td>
+                  </tr>
+                  <tr>
+                    <td class="px-5 py-3"><span class="font-mono text-xs text-muted">ext:git:platform-team</span><span class="block text-xs text-muted">Platform repo team</span></td>
+                    <td class="px-5 py-3"><span class="rounded-full bg-slate-600/30 px-2 py-0.5 font-mono text-[10px] text-muted">git</span></td>
+                    <td class="px-5 py-3 text-right font-mono text-xs">7</td>
+                    <td class="px-5 py-3 text-right font-mono text-xs">96</td>
+                    <td class="px-5 py-3"><span class="text-xs text-slate-500">—</span></td>
+                    <td class="px-5 py-3"><span class="font-mono text-[11px] text-muted">not a member</span></td>
+                    <td class="px-5 py-3 text-right"><span class="text-xs text-slate-500" title="Membership is owned by the source system">managed in Git</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Self-service join requests — the mechanism that actually removes the admin bottleneck -->
+          <div class="rounded-xl border border-line bg-surface">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3">
+              <div>
+                <p class="text-sm font-medium">Join requests <span class="ml-1 font-mono text-xs text-warning">2 pending</span></p>
+                <p class="text-xs text-muted">Approved by the group's owner — not routed through workspace admins.</p>
+              </div>
+            </div>
+            <div class="divide-y divide-line">
+              <div class="flex flex-wrap items-center gap-3 px-5 py-3">
+                <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface2 font-mono text-[11px]">RS</span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm">Rahul S. <span class="text-muted">requested</span> <span class="font-mono text-info">security</span></p>
+                  <p class="text-xs text-muted">"Joining the incident rotation from Aug 1." · 2h ago</p>
+                </div>
+                <span class="font-mono text-[11px] text-muted">→ Mina K.</span>
+                <button class="rounded-lg border border-line px-3 py-1 text-xs text-muted hover:text-ink transition cursor-pointer">Decline</button>
+                <button class="rounded-lg btn-gradient px-3 py-1 text-xs font-semibold transition cursor-pointer">Approve</button>
+              </div>
+              <div class="flex flex-wrap items-center gap-3 px-5 py-3">
+                <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface2 font-mono text-[11px]">CW</span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm">Chen W. <span class="text-muted">requested</span> <span class="font-mono text-muted">platform-team</span></p>
+                  <p class="text-xs text-warning">Mirrored from Git — request must be made in the source system.</p>
+                </div>
+                <a href="#" class="text-xs text-primary hover:underline">Open in Git ↗</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3 rounded-xl border border-info/25 px-4 py-3" style="background:rgba(56,189,248,0.06);">
+            <svg class="mt-0.5 h-4 w-4 shrink-0 text-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <p class="text-xs leading-relaxed text-muted"><span class="font-medium text-ink">Delegation is per-axis.</span> A group owner grants and revokes membership of their own group and approves its join requests. They cannot change anyone's <span class="text-ink">clearance</span> — that stays with workspace admins — and owning a group confers <span class="text-ink">no read access</span> to its documents. Ownership and membership are separate grants; most owners hold both, but the system records them independently so neither implies the other.</p>
+          </div>
+
+          <!-- Break-glass log: the escape hatch is only acceptable because it is visible -->
+          <div class="rounded-xl border border-line bg-surface">
+            <div class="flex items-center justify-between border-b border-line px-5 py-3">
+              <p class="text-sm font-medium">Break-glass grants</p>
+              <span class="text-xs text-muted">time-boxed · reason required · mirrored to the audit trail</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="text-left text-[11px] uppercase tracking-wider text-muted">
+                  <tr class="border-b border-line">
+                    <th class="px-5 py-2 font-medium">When</th>
+                    <th class="px-5 py-2 font-medium">Who</th>
+                    <th class="px-5 py-2 font-medium">Group</th>
+                    <th class="px-5 py-2 font-medium">Reason</th>
+                    <th class="px-5 py-2 font-medium">Expires</th>
+                  </tr>
+                </thead>
+                <tbody class="font-mono text-xs">
+                  <tr class="border-b border-line/60">
+                    <td class="px-5 py-2.5 text-muted">14:02:11</td>
+                    <td class="px-5 py-2.5 font-sans">Truong P. <span class="text-muted">(Owner)</span></td>
+                    <td class="px-5 py-2.5 text-info">security</td>
+                    <td class="px-5 py-2.5 font-sans text-muted">incident IR-2291 — reviewing mis-tagged runbook</td>
+                    <td class="px-5 py-2.5"><span class="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] text-warning">in 3h 12m</span></td>
+                  </tr>
+                  <tr>
+                    <td class="px-5 py-2.5 text-muted">Jul 19</td>
+                    <td class="px-5 py-2.5 font-sans">Mina K. <span class="text-muted">(Admin)</span></td>
+                    <td class="px-5 py-2.5 text-info">security</td>
+                    <td class="px-5 py-2.5 font-sans text-muted">offboarding — reassigning sole-owned docs</td>
+                    <td class="px-5 py-2.5"><span class="rounded-full bg-slate-600/30 px-2 py-0.5 text-[10px] text-muted">expired</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+        </div><!-- end TAB PANEL: Groups -->
+
+
+        <!-- TAB PANEL: Knowledge (Phase 2) — connectors + artifact-type taxonomy.
+             Lives in Admin because connectors hold secret refs and are owner/admin-only. -->
+        <div x-show="tab === 'knowledge'" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+        <section class="space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="flex items-center gap-2 text-base font-semibold">Knowledge sources <span class="rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] font-normal text-muted">Phase 2</span></h2>
+              <p class="mt-0.5 text-xs text-muted">External systems mirrored into this workspace. Mirrored records stay authoritative at their source.</p>
+            </div>
+            <button class="flex items-center gap-2 rounded-lg btn-gradient px-4 py-2 text-sm font-semibold transition cursor-pointer">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              Connect source
+            </button>
+          </div>
+
+          <div class="grid gap-4 lg:grid-cols-3">
+            <!-- Git: shipped first -->
+            <div class="rounded-xl border border-primary/30 bg-surface p-4">
+              <div class="flex items-center justify-between">
+                <span class="flex items-center gap-2 text-sm font-medium">
+                  <svg class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>
+                  Git
+                </span>
+                <span class="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[10px] text-primary">idle</span>
+              </div>
+              <p class="mt-2 font-mono text-xs text-muted">acme/platform · <span class="text-ink">main</span></p>
+              <dl class="mt-3 space-y-1 text-xs">
+                <div class="flex justify-between"><dt class="text-muted">Records</dt><dd class="font-mono text-ink">1,284</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Version marker</dt><dd class="font-mono text-ink">commit SHA</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Default level</dt><dd class="font-mono text-ink">L3 · Internal</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Last synced</dt><dd class="font-mono text-ink">6m ago</dd></div>
+              </dl>
+              <div class="mt-3 flex items-center gap-2">
+                <button class="flex-1 rounded-lg border border-line bg-surface2 px-3 py-1.5 text-xs font-medium hover:border-slate-500 transition cursor-pointer">Sync now</button>
+                <button class="rounded-lg border border-line px-3 py-1.5 text-xs text-muted hover:text-ink transition cursor-pointer">Configure</button>
+              </div>
+            </div>
+
+            <!-- Confluence: fail-closed error state -->
+            <div class="rounded-xl border border-danger/40 bg-surface p-4">
+              <div class="flex items-center justify-between">
+                <span class="flex items-center gap-2 text-sm font-medium">
+                  <svg class="h-4 w-4 text-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                  Confluence
+                </span>
+                <span class="rounded-full bg-danger/15 px-2 py-0.5 font-mono text-[10px] text-danger">blocked</span>
+              </div>
+              <p class="mt-2 font-mono text-xs text-muted">ENG space</p>
+              <div class="mt-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2">
+                <p class="font-mono text-[11px] text-danger">blocked_acl_unresolved</p>
+                <p class="mt-1 text-[11px] leading-relaxed text-muted"><span class="text-ink">18 records were not indexed.</span> Their space permissions could not be mapped to a workspace principal. Importing them would widen access silently, so the sync stopped instead.</p>
+              </div>
+              <button class="mt-3 w-full rounded-lg border border-danger/40 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/10 transition cursor-pointer">Review unmapped groups</button>
+            </div>
+
+            <!-- Jira: not connected -->
+            <div class="rounded-xl border border-dashed border-line bg-surface/50 p-4">
+              <div class="flex items-center justify-between">
+                <span class="flex items-center gap-2 text-sm font-medium text-muted">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+                  Jira
+                </span>
+                <span class="rounded-full bg-slate-600/30 px-2 py-0.5 font-mono text-[10px] text-muted">not connected</span>
+              </div>
+              <p class="mt-2 text-xs leading-relaxed text-muted">Mirror issues and requirements. Needs an ACL mapping from project roles to workspace groups before any record is indexed.</p>
+              <button class="mt-3 w-full rounded-lg border border-line px-3 py-1.5 text-xs hover:border-primary hover:text-primary transition cursor-pointer">Connect</button>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3 rounded-xl border border-info/25 px-4 py-3" style="background:rgba(56,189,248,0.06);">
+            <svg class="mt-0.5 h-4 w-4 shrink-0 text-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <p class="text-xs leading-relaxed text-muted"><span class="font-medium text-ink">Connectors fail closed.</span> A record whose source permissions cannot be resolved to a workspace principal is never indexed — the source is marked <span class="font-mono text-ink">blocked</span> instead. Partial permission fidelity is worse than no mirroring, because it widens access without anyone noticing. Credentials are held as secret references; raw tokens are never stored in the connector config.</p>
+          </div>
+
+          <!-- Artifact-type taxonomy -->
+          <div class="rounded-xl border border-line bg-surface">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3">
+              <div>
+                <p class="text-sm font-medium">Artifact types</p>
+                <p class="text-xs text-muted">The taxonomy incoming records are typed into.</p>
+              </div>
+              <button class="rounded-lg border border-line px-3 py-1.5 text-xs hover:border-primary hover:text-primary transition cursor-pointer">Add type</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="text-left text-[11px] uppercase tracking-wider text-muted">
+                  <tr class="border-b border-line">
+                    <th class="px-5 py-2 font-medium">Type</th>
+                    <th class="px-5 py-2 font-medium">Governed</th>
+                    <th class="px-5 py-2 font-medium">Body indexing</th>
+                    <th class="px-5 py-2 font-medium text-right">Artifacts</th>
+                  </tr>
+                </thead>
+                <tbody class="text-xs">
+                  <tr class="border-b border-line/60"><td class="px-5 py-2.5 font-mono text-ink">biz_rule</td><td class="px-5 py-2.5"><span class="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[10px] text-primary">lifecycle</span></td><td class="px-5 py-2.5 font-mono text-muted">full_body</td><td class="px-5 py-2.5 text-right font-mono">212</td></tr>
+                  <tr class="border-b border-line/60"><td class="px-5 py-2.5 font-mono text-ink">requirement</td><td class="px-5 py-2.5"><span class="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[10px] text-primary">lifecycle</span></td><td class="px-5 py-2.5 font-mono text-muted">full_body</td><td class="px-5 py-2.5 text-right font-mono">640</td></tr>
+                  <tr class="border-b border-line/60"><td class="px-5 py-2.5 font-mono text-ink">spec</td><td class="px-5 py-2.5"><span class="rounded-full bg-slate-600/30 px-2 py-0.5 font-mono text-[10px] text-muted">inherits source</span></td><td class="px-5 py-2.5 font-mono text-muted">full_body</td><td class="px-5 py-2.5 text-right font-mono">418</td></tr>
+                  <tr class="border-b border-line/60"><td class="px-5 py-2.5 font-mono text-ink">agent_def</td><td class="px-5 py-2.5"><span class="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[10px] text-primary">lifecycle</span></td><td class="px-5 py-2.5 font-mono text-muted">full_body</td><td class="px-5 py-2.5 text-right font-mono">14</td></tr>
+                  <tr><td class="px-5 py-2.5 font-mono text-ink">source_file</td><td class="px-5 py-2.5"><span class="rounded-full bg-slate-600/30 px-2 py-0.5 font-mono text-[10px] text-muted">inherits source</span></td><td class="px-5 py-2.5"><span class="font-mono text-warning">metadata_only</span> <span class="text-slate-500">— large &amp; churny; link out to the repo</span></td><td class="px-5 py-2.5 text-right font-mono">3,902</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+        </div><!-- end TAB PANEL: Knowledge -->
+
         <!-- TAB PANEL: Broadcast -->
         <div x-show="tab === 'broadcast'" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
         <section class="grid gap-6 lg:grid-cols-5">
@@ -461,6 +740,8 @@
                 <option>Chen W.</option>
                 <option>Elena L.</option>
                 <option>System</option>
+            <option>agent:truong-mbp</option>
+            <option>agent:ci-runner-07</option>
               </select>
               <select class="bg-canvas border border-line rounded-lg px-3 py-1.5 text-sm text-ink font-sans focus:outline-none focus:border-slate-500">
                 <option>All actions</option>
@@ -481,15 +762,16 @@
           <div class="rounded-xl border border-line bg-surface overflow-x-auto">
             <div class="flex items-center justify-between border-b border-line px-5 py-3">
               <p class="text-sm font-medium">Audit events</p>
-              <span class="text-xs text-muted">PII-scrubbed · raw bodies retained 30 days</span>
+              <span class="text-xs text-muted">PII-scrubbed · raw bodies retained 30 days · agent owners can see their own agent's activity without being an admin</span>
             </div>
             <table class="w-full text-sm">
               <thead class="text-left text-[11px] uppercase tracking-wide text-muted">
                 <tr class="border-b border-line">
                   <th class="px-5 py-2.5 font-medium font-mono">Timestamp</th>
                   <th class="px-5 py-2.5 font-medium">Actor</th>
+                  <th class="px-5 py-2.5 font-medium">Op <span class="ml-1 rounded bg-slate-600/30 px-1 py-0.5 text-[9px] normal-case">Phase 2</span></th>
                   <th class="px-5 py-2.5 font-medium">Action / Tool</th>
-                  <th class="px-5 py-2.5 font-medium">Workspace</th>
+                  <th class="px-5 py-2.5 font-medium">Resource <span class="ml-1 rounded bg-slate-600/30 px-1 py-0.5 text-[9px] normal-case">Phase 2</span></th>
                   <th class="px-5 py-2.5 font-medium text-right">Cost (cr)</th>
                   <th class="px-5 py-2.5 font-medium font-mono">Fingerprint</th>
                   <th class="px-5 py-2.5 font-medium">Trace</th>
@@ -499,8 +781,9 @@
                 <tr class="border-b border-line/60">
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">14:23:11</td>
                   <td class="px-5 py-2.5 text-sm">Truong P. <span class="text-xs text-muted">(Owner)</span></td>
+                                    <td class="px-5 py-2.5"><span class="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted bg-slate-600/30">read</span></td>
                   <td class="px-5 py-2.5 font-mono text-xs">search_workspace</td>
-                  <td class="px-5 py-2.5 text-xs text-muted">Acme · Research</td>
+                  <td class="px-5 py-2.5 font-mono text-xs"><span class="text-muted">142 chunks · 3 filtered</span></td>
                   <td class="px-5 py-2.5 text-right font-mono text-xs">−42</td>
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">a3f9…</td>
                   <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
@@ -508,17 +791,41 @@
                 <tr class="border-b border-line/60">
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">14:19:05</td>
                   <td class="px-5 py-2.5 text-sm">Rahul S. <span class="text-xs text-muted">(Admin)</span></td>
+                                    <td class="px-5 py-2.5"><span class="rounded px-1.5 py-0.5 font-mono text-[10px] text-primary bg-primary/15">create</span></td>
                   <td class="px-5 py-2.5 font-mono text-xs">ingest_document</td>
-                  <td class="px-5 py-2.5 text-xs text-muted">Acme · Research</td>
+                  <td class="px-5 py-2.5 font-mono text-xs"><a href="library.html" class="text-info hover:underline">doc:Q3-revenue.pdf</a></td>
                   <td class="px-5 py-2.5 text-right font-mono text-xs">−210</td>
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">b7c2…</td>
+                  <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
+                </tr>
+                <!-- Break-glass is only acceptable because it lands here (Phase 2) -->
+                <!-- Agent actor (Phase 2): logged as the agent, never as its owner -->
+                <tr class="border-b border-line/60">
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">14:18:04</td>
+                  <td class="px-5 py-2.5 text-sm"><span class="rounded bg-info/15 px-1.5 py-0.5 font-mono text-[10px] text-info">agent</span> truong-mbp <span class="text-xs text-muted">(owner: Truong P.)</span></td>
+                  <td class="px-5 py-2.5"><span class="rounded bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] text-primary">create</span></td>
+                  <td class="px-5 py-2.5 font-mono text-xs">ingest_document</td>
+                  <td class="px-5 py-2.5 font-mono text-xs"><a href="library.html" class="text-info hover:underline">doc:competitor-scan.md</a> <span class="text-[10px] text-muted">L2 · draft</span></td>
+                  <td class="px-5 py-2.5 text-right font-mono text-xs text-danger">−96</td>
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">a71c…</td>
+                  <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
+                </tr>
+                <tr class="border-b border-line/60 bg-warning/5">
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">14:16:11</td>
+                  <td class="px-5 py-2.5 text-sm">Truong P. <span class="text-xs text-muted">(Owner)</span></td>
+                                    <td class="px-5 py-2.5"><span class="rounded px-1.5 py-0.5 font-mono text-[10px] text-warning bg-warning/15">update</span></td>
+                  <td class="px-5 py-2.5 font-mono text-xs text-warning">break_glass_granted <span class="ml-1 rounded bg-warning/15 px-1.5 py-0.5 font-sans text-[10px]">group:security</span></td>
+                  <td class="px-5 py-2.5 font-mono text-xs"><span class="text-muted">group:security</span></td>
+                  <td class="px-5 py-2.5 text-right font-mono text-xs text-muted">0</td>
+                  <td class="px-5 py-2.5 font-mono text-xs text-muted">7d41…</td>
                   <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
                 </tr>
                 <tr class="border-b border-line/60 bg-warning/5">
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">14:15:33</td>
                   <td class="px-5 py-2.5 text-sm text-muted">System</td>
+                                    <td class="px-5 py-2.5"><span class="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted bg-slate-600/30">read</span></td>
                   <td class="px-5 py-2.5 font-mono text-xs text-warning">rate_limit_hit</td>
-                  <td class="px-5 py-2.5 text-xs text-muted">Acme · Research</td>
+                  <td class="px-5 py-2.5 font-mono text-xs"><span class="text-slate-500">—</span></td>
                   <td class="px-5 py-2.5 text-right font-mono text-xs text-muted">0</td>
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">d1e4…</td>
                   <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
@@ -526,8 +833,9 @@
                 <tr class="border-b border-line/60">
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">14:10:22</td>
                   <td class="px-5 py-2.5 text-sm">Mina L. <span class="text-xs text-muted">(Member)</span></td>
+                                    <td class="px-5 py-2.5"><span class="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted bg-slate-600/30">read</span></td>
                   <td class="px-5 py-2.5 font-mono text-xs">search_workspace</td>
-                  <td class="px-5 py-2.5 text-xs text-muted">Acme · Research</td>
+                  <td class="px-5 py-2.5 font-mono text-xs"><span class="text-muted">88 chunks · 0 filtered</span></td>
                   <td class="px-5 py-2.5 text-right font-mono text-xs">−56</td>
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">e8f0…</td>
                   <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
@@ -535,8 +843,9 @@
                 <tr class="border-b border-line/60 bg-danger/5">
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">13:58:44</td>
                   <td class="px-5 py-2.5 text-sm">Chen W. <span class="text-xs text-muted">(Member)</span></td>
+                  <td class="px-5 py-2.5"><span class="rounded bg-slate-600/30 px-1.5 py-0.5 font-mono text-[10px] text-muted">read</span></td>
                   <td class="px-5 py-2.5 font-mono text-xs"><span class="text-danger">query_refused</span> <span class="text-[10px] text-muted">(injection blocked)</span></td>
-                  <td class="px-5 py-2.5 text-xs text-muted">—</td>
+                  <td class="px-5 py-2.5 font-mono text-xs"><span class="text-slate-500">—</span></td>
                   <td class="px-5 py-2.5 text-right font-mono text-xs text-muted">0</td>
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">f2a1…</td>
                   <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>
@@ -544,8 +853,9 @@
                 <tr>
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">13:45:17</td>
                   <td class="px-5 py-2.5 text-sm">Elena L. <span class="text-xs text-muted">(pending)</span></td>
+                                    <td class="px-5 py-2.5"><span class="rounded px-1.5 py-0.5 font-mono text-[10px] text-warning bg-warning/15">update</span></td>
                   <td class="px-5 py-2.5 font-mono text-xs">invite_accepted</td>
-                  <td class="px-5 py-2.5 text-xs text-muted">Acme · Research</td>
+                  <td class="px-5 py-2.5 font-mono text-xs"><span class="text-muted">member:elena@partner.co</span></td>
                   <td class="px-5 py-2.5 text-right font-mono text-xs text-muted">0</td>
                   <td class="px-5 py-2.5 font-mono text-xs text-muted">c9b3…</td>
                   <td class="px-5 py-2.5"><a href="#" class="text-info hover:underline font-mono text-xs">↗</a></td>

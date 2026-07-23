@@ -64,8 +64,17 @@
         <span class="grid place-items-center h-8 w-8 rounded-lg bg-primary text-[#04210F] font-mono font-bold">A</span>
         <span class="font-mono font-semibold tracking-tight text-gradient">AISAT<span style="-webkit-text-fill-color:#22C55E">·</span>STUDIO</span>
       </div>
+      <!-- Org + workspace switcher. The org line renders only when the org has more than
+           one workspace or an enterprise plan; Organization settings open from here, which
+           is why there is no Organization nav item. -->
       <button class="mx-3 mt-3 flex items-center justify-between rounded-lg border border-line bg-canvas px-3 py-2 text-sm hover:border-slate-500 transition">
-        <span class="flex items-center gap-2"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
+        <span class="flex min-w-0 flex-col items-start gap-0.5">
+          <span class="flex items-center gap-1 truncate text-[10px] uppercase tracking-wider text-muted">
+            <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg>
+            Acme Corp
+          </span>
+          <span class="flex items-center gap-2 text-sm"><span class="h-5 w-5 grid place-items-center rounded bg-info/20 text-info text-xs font-mono">Q3</span> Acme · Research</span>
+        </span>
         <svg class="h-4 w-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <nav class="mt-4 flex-1 space-y-1 px-3 text-sm">
@@ -137,10 +146,10 @@
         <!-- Balance hero + three ceilings -->
         <section class="grid gap-4 lg:grid-cols-3">
           <div class="lg:col-span-2 rounded-xl border border-line bg-surface p-6">
-            <p class="text-[11px] uppercase tracking-wider text-muted">Workspace Credits</p>
+            <p class="text-[11px] uppercase tracking-wider text-muted">Workspace Credits <span class="ml-1 normal-case tracking-normal text-slate-500">· allocation from Acme Corp</span></p>
             <div class="mt-2 flex items-end gap-3">
               <span class="font-mono text-4xl font-semibold">12,480</span>
-              <span class="mb-1 text-sm text-muted">credits left (out of 70,000)</span>
+              <span class="mb-1 text-sm text-muted">credits left of a <span class="font-mono text-ink">70,000</span> allocation</span>
             </div>
             <div class="mt-4 h-2.5 rounded-full bg-canvas overflow-hidden">
               <span class="block h-full bg-warning" style="width:82%"></span>
@@ -286,6 +295,9 @@
                 <tr class="border-b border-line/60"><td class="px-5 py-2.5">query #8cc3</td><td class="px-5 py-2.5 font-sans text-muted">Rahul S.</td><td class="px-5 py-2.5 font-sans">Query</td><td class="px-5 py-2.5">smart</td><td class="px-5 py-2.5 text-right">2,104</td><td class="px-5 py-2.5 text-right text-danger">−56</td><td class="px-5 py-2.5 text-muted">8m ago</td></tr>
                 <tr class="border-b border-line/60"><td class="px-5 py-2.5">ingest #7be1 <span class="ml-1 rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] text-muted font-sans">deduped</span></td><td class="px-5 py-2.5 font-sans text-muted">Mina K.</td><td class="px-5 py-2.5 font-sans">Ingestion</td><td class="px-5 py-2.5">embed</td><td class="px-5 py-2.5 text-right">8,204</td><td class="px-5 py-2.5 text-right text-danger">−120</td><td class="px-5 py-2.5 text-muted">14m ago</td></tr>
                 <tr class="border-b border-line/60"><td class="px-5 py-2.5">caption #3cd9</td><td class="px-5 py-2.5 font-sans text-muted">Truong P.</td><td class="px-5 py-2.5 font-sans">Captioning</td><td class="px-5 py-2.5">fast</td><td class="px-5 py-2.5 text-right">612</td><td class="px-5 py-2.5 text-right text-danger">−18</td><td class="px-5 py-2.5 text-muted">31m ago</td></tr>
+                <!-- Phase 2 credit-positive operation types — signed delta, one row per payment idem_key -->
+                <tr class="border-b border-line/60"><td class="px-5 py-2.5">refund <span class="ml-1 rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] text-muted font-sans">Phase 2</span></td><td class="px-5 py-2.5 font-sans text-muted">billing</td><td class="px-5 py-2.5 font-sans">Billing</td><td class="px-5 py-2.5">—</td><td class="px-5 py-2.5 text-right">—</td><td class="px-5 py-2.5 text-right text-danger">−5,000</td><td class="px-5 py-2.5 text-muted">Jun 12</td></tr>
+                <tr class="border-b border-line/60"><td class="px-5 py-2.5">subscription_grant <span class="ml-1 rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] text-muted font-sans">Phase 2</span></td><td class="px-5 py-2.5 font-sans text-muted">billing</td><td class="px-5 py-2.5 font-sans">Billing</td><td class="px-5 py-2.5">—</td><td class="px-5 py-2.5 text-right">—</td><td class="px-5 py-2.5 text-right text-primary">+50,000</td><td class="px-5 py-2.5 text-muted">Jun 1</td></tr>
                 <tr><td class="px-5 py-2.5">topup</td><td class="px-5 py-2.5 font-sans text-muted">billing</td><td class="px-5 py-2.5 font-sans">Billing</td><td class="px-5 py-2.5">—</td><td class="px-5 py-2.5 text-right">—</td><td class="px-5 py-2.5 text-right text-primary">+50,000</td><td class="px-5 py-2.5 text-muted">Jun 1</td></tr>
               </tbody>
             </table>
@@ -310,6 +322,45 @@
               </tbody>
             </table>
           </div>
+        </section>
+
+        <!-- ============ Plan & billing (Phase 2) ============
+             Billing anchors to the ORGANIZATION, so this screen points there rather than
+             duplicating the plan catalogue and receipts. -->
+        <section class="rounded-xl border border-line bg-surface p-5">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="flex flex-wrap items-center gap-2 text-sm font-medium">
+                Plan &amp; billing
+                <span class="rounded bg-slate-600/30 px-1.5 py-0.5 text-[10px] font-normal text-muted">Phase 2</span>
+                <span class="text-xs font-normal text-muted">· managed for <span class="text-ink">Acme Corp</span></span>
+              </p>
+              <p class="mt-1 text-xs leading-relaxed text-muted">This workspace does not hold a plan of its own. The organization buys credits once and allocates them to each workspace, so there is one contract and one invoice rather than one per workspace.</p>
+            </div>
+            <a href="organization.html" class="shrink-0 inline-flex items-center gap-1.5 rounded-lg btn-gradient px-4 py-2 text-sm font-semibold transition cursor-pointer">
+              Manage in organization
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+            </a>
+          </div>
+          <dl class="mt-4 grid gap-3 sm:grid-cols-4">
+            <div class="rounded-lg border border-line bg-canvas p-3">
+              <dt class="text-[11px] uppercase tracking-wider text-muted">Org plan</dt>
+              <dd class="mt-1 text-sm font-medium">Scale <span class="text-xs font-normal text-muted">· monthly</span></dd>
+            </div>
+            <div class="rounded-lg border border-line bg-canvas p-3">
+              <dt class="text-[11px] uppercase tracking-wider text-muted">This allocation</dt>
+              <dd class="mt-1 font-mono text-sm text-ink">70,000 <span class="text-xs text-muted">/ period</span></dd>
+            </div>
+            <div class="rounded-lg border border-line bg-canvas p-3">
+              <dt class="text-[11px] uppercase tracking-wider text-muted">Org pool left</dt>
+              <dd class="mt-1 font-mono text-sm text-primary">148,200</dd>
+            </div>
+            <div class="rounded-lg border border-line bg-canvas p-3">
+              <dt class="text-[11px] uppercase tracking-wider text-muted">Renews</dt>
+              <dd class="mt-1 font-mono text-sm text-ink">Aug 1, 2026</dd>
+            </div>
+          </dl>
+          <p class="mt-3 text-[11px] leading-relaxed text-muted">Exhausting this allocation pauses AI operations <span class="text-ink">in this workspace only</span> — it never silently draws down another workspace's budget. An org admin can raise the allocation while the pool has credits left. Receipts and payment methods live on the organization's Billing tab.</p>
         </section>
 
         <!-- Exhausted-state preview -->
