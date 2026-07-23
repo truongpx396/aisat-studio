@@ -6,7 +6,7 @@
 | **Last run** | `2026-07-04T07:59:32Z` |
 | **Branch** | `test/sbd-skill-1783151970` (temp branch created by suite) |
 | **Run by** | `test-skill.sh` regression suite |
-| **Repo** | `aisat-studio` |
+| **Repo** | `aisat-intel` |
 | **Result** | ✅ 65 PASSED · ⏭ 1 SKIPPED · ❌ 0 FAILED · 66 total |
 
 ---

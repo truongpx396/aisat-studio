@@ -5,7 +5,7 @@
 | **Date** | 2026-07-04 |
 | **Last run** | `2026-07-04T11-07_local` |
 | **Script** | `test-skill.sh` regression suite |
-| **Repo** | `aisat-studio` |
+| **Repo** | `aisat-intel` |
 | **Result** | ✅ 188 PASSED · ⏭ 0 SKIPPED · ❌ 0 FAILED · 188 total |
 
 ---

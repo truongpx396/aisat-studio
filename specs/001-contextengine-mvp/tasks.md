@@ -1,8 +1,8 @@
 ---
-description: "Task list for AISAT-STUDIO MVP (Phase 1) implementation"
+description: "Task list for AISAT-INTEL MVP (Phase 1) implementation"
 ---
 
-# Tasks: AISAT-STUDIO MVP — AI-Powered Shared Second Brain (Phase 1)
+# Tasks: AISAT-INTEL MVP — AI-Powered Shared Second Brain (Phase 1)
 
 **Input**: Design documents from `/specs/001-contextengine-mvp/`
 

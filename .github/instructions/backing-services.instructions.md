@@ -1,12 +1,12 @@
 ---
-description: 'Production practices for backing services: PostgreSQL, Redis, NATS JetStream, Qdrant, MinIO/S3, Casdoor, and Caddy. Configuration, resilience, security, and operational standards for the AISAT-STUDIO stack.'
+description: 'Production practices for backing services: PostgreSQL, Redis, NATS JetStream, Qdrant, MinIO/S3, Casdoor, and Caddy. Configuration, resilience, security, and operational standards for the AISAT-INTEL stack.'
 applyTo: '**/*.sql,**/migrations/**,**/Caddyfile,**/Caddyfile.*,**/*.Caddyfile,**/docker-compose*.yml,**/docker-compose*.yaml,**/compose*.yml,**/compose*.yaml,**/*.env,**/.env.*,**/k8s/**,**/deploy/**,**/config/**,**/*natsstore*,**/*jetstream*,**/*qdrant*,**/*redis*,**/*casdoor*'
 ---
 
 # Backing Services — Production Practices
 
 Standards for provisioning, configuring, and operating the backing services used by
-AISAT-STUDIO: **PostgreSQL** (with RLS), **Redis**, **NATS JetStream**, **Qdrant**,
+AISAT-INTEL: **PostgreSQL** (with RLS), **Redis**, **NATS JetStream**, **Qdrant**,
 **MinIO / S3**, **Casdoor** (OIDC), and **Caddy** (edge). These rules apply to
 migrations, infra config, deployment manifests, and any application code that connects
 to these services.

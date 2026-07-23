@@ -1,4 +1,4 @@
-# Implementation Plan: AISAT-STUDIO MVP — AI-Powered Shared Second Brain (Phase 1)
+# Implementation Plan: AISAT-INTEL MVP — AI-Powered Shared Second Brain (Phase 1)
 
 **Branch**: `001-contextengine-mvp` | **Date**: 2026-06-06 | **Spec**: [spec.md](./spec.md)
 
@@ -6,7 +6,7 @@
 
 ## Summary
 
-AISAT-STUDIO (ContextEngine) is an AI-powered shared second brain for work teams: members ingest files/links/notes; the system converts, auto-tags, chunks, embeds, and indexes them; a stateful RAG agent answers natural-language questions with citations, scoped strictly to what the requester is cleared to see. Access control is enforced at the data layer (Postgres RLS + Qdrant payload pre-filters), never by prompt. Every AI operation is metered against a workspace credit balance, and every answer is observable in a developer-facing debug panel.
+AISAT-INTEL (ContextEngine) is an AI-powered shared second brain for work teams: members ingest files/links/notes; the system converts, auto-tags, chunks, embeds, and indexes them; a stateful RAG agent answers natural-language questions with citations, scoped strictly to what the requester is cleared to see. Access control is enforced at the data layer (Postgres RLS + Qdrant payload pre-filters), never by prompt. Every AI operation is metered against a workspace credit balance, and every answer is observable in a developer-facing debug panel.
 
 Technical approach: a three-runtime system — a Go BFF/gateway (kernel + agent policy layer) fronting a Python ML/agent tier (LangGraph 7-node RAG graph, ingestion pipeline, MCP tool server) and a React (Vite) SPA — coordinated over NATS, with PostgreSQL (RLS) as the durable store, Redis as the hot path (credits, checkpoints, semantic cache, rate limits), Qdrant for hybrid vector search, and S3 for object storage. LLM access is funneled through a single Python gateway (`fast`/`smart`/`embed`/`rerank` aliases with one-hop provider fallback) and a Go middleware policy chain; observability is via Langfuse + OpenTelemetry.
 

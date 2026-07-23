@@ -1,4 +1,4 @@
-# Phase 1 Data Model: AISAT-STUDIO MVP (Phase 1)
+# Phase 1 Data Model: AISAT-INTEL MVP (Phase 1)
 
 **Date**: 2026-06-06 | **Plan**: [plan.md](./plan.md) | **Spec entities**: see [spec.md](./spec.md) Key Entities
 

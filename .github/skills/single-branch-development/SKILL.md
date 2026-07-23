@@ -143,8 +143,8 @@ subagent vs ⚙️ script).
       if they exist** (pass silently if absent, never fail):
       - `.stitch/designs/` — Stitch-generated HTML mocks; read the page(s) whose name matches the
         component/page being built (e.g. `.stitch/designs/library.html` for a library page task).
-      - `design-system/` — design-system docs (e.g. `design-system/aisat-studio/MASTER.md` and the
-        relevant page spec under `design-system/aisat-studio/pages/`).
+      - `design-system/` — design-system docs (e.g. `design-system/aisat-intel/MASTER.md` and the
+        relevant page spec under `design-system/aisat-intel/pages/`).
       Embed the relevant visual spec / token / layout constraints into every frontend subagent's brief
       so generated UI matches the approved design from the start rather than diverging and requiring a
       separate design-alignment pass.

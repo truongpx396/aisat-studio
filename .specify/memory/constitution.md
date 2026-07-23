@@ -53,7 +53,7 @@ Consistency notes:
 Follow-up TODOs: None.
 -->
 
-# AISAT Studio Constitution
+# AISAT Intel Constitution
 
 ## Core Principles
 
