@@ -55,6 +55,14 @@ async def embed(texts: list[str], workspace_id: str) -> list[list[float]]: ...
 - **PII scrub before write**: prompts/responses are PII-scrubbed before any Langfuse/eval write; raw bodies retained 30 days then purged (FR-024, Clarification Q5).
 - **Logging**: `llm_call_log` gets metadata/token/cost only — never raw message bodies (FR-024).
 
+## Cost settlement & stream cancellation
+
+Both rules below exist because an LLM call has a **variable cost known only after it runs**, and a streamed call can be **abandoned mid-flight**. Phase 1 pins the policy so neither case leaks money silently.
+
+- **Settlement is post-call; the budget check is an admission gate, not a reservation.** The pipeline's *budget check* reads the current workspace balance + per-role daily token budget and refuses a call already at/over limit — it does **not** pre-debit. When the provider returns (or a stream ends/aborts) the gateway computes `cost_usd_micros` from the **actual** `input_tokens + output_tokens` and publishes `billing.deduct.<ws>` bound to the call's `idem_key`; the Go kernel billing worker performs the Redis `DECRBY` + ledger write (research §3). Python never touches the balance.
+- **Concurrency overshoot is bounded, and Phase 1 accepts it.** Because admission is a gate and settlement is post-call, K calls admitted concurrently against a near-empty balance can settle it slightly negative. The overshoot is **bounded** — each in-flight call's cost is capped by the per-call output cap (`max_tokens`, FR-017) plus the body-size-limited input (the BFF `413` guard), so worst case ≈ *in-flight concurrency × per-call ceiling*. Phase 1 **accepts this bounded overshoot and heals it at settlement and the hourly reconcile** (SC-006) rather than paying the latency of a hard two-phase reserve-then-refund. Exact pre-authorization of a variable cost would require either serializing a workspace's calls (kills throughput) or reserving `max_tokens` on every call and refunding the remainder (doubles ledger writes); gate + bounded-overshoot + reconcile is the standard token-metering posture. A hard per-call reservation is a **Phase 4** option, warranted only if a workspace's `concurrency × cap` becomes a material fraction of a typical balance.
+- **Stream cancellation propagates end-to-end, and a cancelled stream settles for what it generated.** A `chat_stream` whose consumer goes away MUST abort the whole chain: the Go `/llm/proxy` handler's request context cancels on client disconnect → cancels the forwarded `chat_stream` call → cancels the provider SDK stream. No generation continues server-side after the client is gone. A cancelled/aborted stream is **still billed for the tokens actually emitted before the abort** — not zero (which would make "open a stream, disconnect" a free-inference abuse vector) and not the full `max_tokens` (which would over-bill an early cancel). The gateway counts partial `output_tokens`, publishes the `billing.deduct` for that partial cost under the same `idem_key`, and records the call in the trace + `llm_call_log` as `cancelled` with the partial counts. Cancellation on **byok** is the agent's own provider concern; this obligation covers the metered `proxy` path.
+
 ## External agent integration note
 
 `/llm/proxy` (Go BFF) is the external entrypoint for this gateway. It is OpenAI-wire-compatible so external agents (Cursor, Claude Code, Cline, etc.) can point their `LLM_BASE_URL` at it without code changes.
@@ -85,6 +93,8 @@ Configuring only `/llm/proxy` without the MCP server gives governance and meteri
 - A primary-provider timeout fails over exactly once and increments `llm.fallback.count`; a low-quality (but successful) response does **not** fail over (FR-029).
 - `embed` never silently substitutes the fallback model for a live call; the affected item is parked in DLQ (FR-029).
 - A prompt containing an email/token is PII-scrubbed before it appears in any trace/eval store (FR-024).
+- Concurrent calls that each pass the budget gate but jointly exceed the balance settle to a **bounded-negative** balance (no worse than `−(in-flight concurrency × per-call ceiling)`), and the next hourly reconcile restores it to ledger truth (SC-006) — settlement is never skipped because the balance went to/below zero mid-flight.
+- A `chat_stream` whose client disconnects mid-stream **cancels the provider call** (the trace records no `output_tokens` produced after the disconnect timestamp) and deducts credits for **exactly the tokens emitted before cancel** — never zero, never the full `max_tokens` — under the call's `idem_key`.
 
 ---
 

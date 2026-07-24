@@ -88,17 +88,21 @@ flowchart TB
         SPA["Chat · Library · Upload · Admin<br/>Debug Panel · Notifications<br/>(REST + SSE)"]
     end
 
-    subgraph GO["🐹 Go BFF / Gateway / Kernel (1.23)"]
+    subgraph GO["🐹 Go BFF / Gateway / Kernel (1.23) · deploy roles: api · sse-relay · worker"]
         BFF["BFF — view-model shaping"]
         Policy["Agent Policy Chain<br/>auth · tenancy · tool ACL · budget"]
         Kernel["Kernel: Auth · Bus · Storage · Meter · Flags"]
     end
 
-    subgraph PY["🐍 Python ML / Agent Tier (3.12)"]
+    subgraph PY["🐍 Python ML / Agent Tier (3.12) · deploy roles: ingest · query · enrich · janitor"]
         Ingest["Ingestion Pipeline<br/>convert · caption · chunk · tag · embed"]
         Agent["LangGraph RAG Agent<br/>7+1 nodes · Mem0 · semantic cache"]
         Gateway["LLM Gateway — single chokepoint<br/>fast/smart/embed/rerank + fallback"]
-        MCP["MCP Tool Server — 9 tools / 3 categories"]
+        MCP["MCP Tool Server — 8 tools / 3 categories"]
+    end
+
+    subgraph CRAWL["🕷️ Crawl4AI — separate single deployment"]
+        Crawl["crawl worker<br/>headless browser · SSRF-guarded fetch"]
     end
 
     subgraph DATA["🗄️ Backing Stores"]
@@ -119,6 +123,9 @@ flowchart TB
     Agent --> Gateway
     Agent --> MCP
     Ingest --> Gateway
+    Ingest -. NATS ingestion.crawl .-> Crawl
+    Crawl -. distilled draft .-> Ingest
+    Crawl --> Gateway
     Kernel --> PG & Redis & S3
     Agent --> Qdrant & Redis
     Ingest --> Qdrant & PG & S3
@@ -132,30 +139,50 @@ flowchart TB
 - **The LLM Gateway** (`llm_gateway.py`) is the *only* place model IDs exist — business code uses aliases.
 - **The MCP server** is the *only* tool surface — every dispatch is allowlist-checked.
 
+#### Deployable runtimes at a glance
+
+The system builds into **three images**, each deployed as one or more independently-scalable **roles** — the split is at the **deployment layer, not the code layer**. This is the full runtime topology:
+
+| Image | Deployable role | Entrypoint | Handles | Scales on |
+|---|---|---|---|---|
+| **`backend-go`** (1 image) | **`api`** | `cmd/api` | REST aggregation + stream creation (`POST /query` → JetStream) | RPS / CPU |
+| | **`sse-relay`** | `cmd/relay` | Long-lived streaming `GET`s over Redis pub/sub | active connections |
+| | **`worker`** | `cmd/worker` | Billing deduct/grant, notification fan-out + **email sender**, outbox drain, and single-owner `*.tick`/`*.refresh` jobs (reconcile · DLQ sweep · retention · matview) | consumer lag / single-owner |
+| **`backend-python`** (1 image) | **`ingest`** | `ingestion.*` subject | convert · caption · chunk · tag · embed | consumer lag (×3) |
+| | **`query`** | `query.agent.*` subject | LangGraph RAG agent (stream partials → Redis) | consumer lag (×3) |
+| | **`enrich`** | `enrich.note.*` subject | note-enrichment orchestration (distill → draft) | consumer lag |
+| | **`janitor`** | `agent.janitor.tick` | single-owner stale-`agent_run` re-queue | single-owner |
+| **`crawl` / Crawl4AI** (**separate image**) | **`crawl`** | `ingestion.crawl.*` subject | headless-browser (Chromium) fetch, SSRF-guarded | its own deployment |
+
+> **Note the two things people usually get wrong here:** the **email/notification** worker and the **billing** worker are **Go** (`cmd/worker`) roles — not Python — because they carry no ML; and the **crawl** worker is peeled out into its **own separate deployment** rather than living on the shared Python pods (see below). The two subsections that follow expand the Go and Python splits.
+
 #### One Python codebase, many worker roles
 
-The `ingest` / `query` / `crawl` / `email` workers in the diagram are **not** separate repositories — they are logical roles inside the single `backend-python/` codebase (one image, one `pyproject.toml`). **The split happens at the deployment layer, not the code layer:** the same image is deployed as multiple pods, each with an entrypoint that subscribes to a different **NATS subject**.
+The `ingest` / `query` / `enrich` / `janitor` roles are **not** separate repositories — they are logical roles inside the single `backend-python/` codebase (one image, one `pyproject.toml`). **The split happens at the deployment layer, not the code layer:** the same image is deployed as multiple pods, each with an entrypoint that subscribes to a different **NATS subject**. (Billing and the notification/email workers are **Go** [`cmd/worker`](#one-go-image-three-deployable-roles-api--sse-relay--worker) roles, not Python.) The one role that is **not** in this image is **crawl** — it ships as its own separate deployment:
 
 ```text
-                       ┌──────────────────────────────┐
-                       │   backend-python/  (1 image) │
-                       │   shared code · schemas ·    │
-                       │   LLM gateway · MCP server   │
-                       └──────────────┬───────────────┘
-            same image, different entrypoint per subject
-        ┌───────────────┬─────────────┴───────┬───────────────┐
-   ingestion.*       query.*             billing.*         (crawl)
-   ┌────────┐       ┌────────┐          ┌────────┐        ┌────────┐
-   │ ×3 pod │       │ ×3 pod │          │ ×3 pod │        │ ×N pod │
-   └────────┘       └────────┘          └────────┘        └────────┘
+              ┌──────────────────────────────┐   ingestion.crawl.*   ┌──────────────────────────────┐
+              │   backend-python/ (1 image)  │  (member-initiated    │   crawl · Crawl4AI           │
+              │   shared code · schemas ·    │   note enrichment)    │   SEPARATE image — its own   │
+              │   LLM gateway · MCP server   │ ─────────────────────▶│   single deployment          │
+              └───────────────┬──────────────┘                       │   headless browser · SSRF    │
+        same image, one entrypoint per NATS subject                  └──────────────────────────────┘
+   ┌───────────────┬──────────┴──────────┬──────────────────┐
+ ingestion.*    query.agent.*       enrich.note.*     agent.janitor.tick
+ ┌─────────┐    ┌─────────┐         ┌─────────┐        ┌──────────────┐
+ │ ×3 pod  │    │ ×3 pod  │         │ ×N pod  │        │ single-owner │
+ │ ingest  │    │ query   │         │ enrich  │        │ janitor      │
+ └─────────┘    └─────────┘         └─────────┘        └──────────────┘
 ```
+
+**Why `crawl` is its own single deployment.** The crawl worker runs **Crawl4AI**, which drives a full **headless browser** (Chromium) — a heavy, security-sensitive, resource-divergent workload unlike the other stateless Python pods. Peeling it into its **own deployment** keeps that browser footprint (memory, cold-start, sandboxing) off the ingest/query/agent pods, lets it scale or stay pinned independently, and isolates its blast radius. It only ever consumes `ingestion.crawl.*` — the **internal fetch step of member-initiated note enrichment** (FR-001), never an autonomous agent action — and its distilled output enters the index only after the member accepts the draft.
 
 | | |
 |---|---|
-| **What it gives you** | Independent horizontal scaling + per-subject failure isolation, while every role shares the same code, schemas, LLM gateway, and MCP server. |
+| **What it gives you** | Independent horizontal scaling + per-subject failure isolation, while every in-image role shares the same code, schemas, LLM gateway, and MCP server. |
 | **What pattern it is** | A **modular monolith / distributed-worker** model — same family as Celery/Sidekiq queue-scoped workers or NATS/Kafka consumer groups ("one codebase → N specialized consumer deployments"). |
 | **Why this middle ground** | It sits between a do-everything monolith (can't scale roles independently) and a repo-per-service split (schema/version-skew tax). |
-| **Tradeoffs to manage** | Set **per-role resource limits & autoscaling** (ingest/crawl are bursty; query is latency-sensitive), and keep dependency hygiene tight since all roles share one image. A genuinely divergent role (headless-browser crawl, or a future audio worker) is the natural candidate to peel into its own image later — the per-subject consumer boundary makes that a low-friction refactor. |
+| **Tradeoffs to manage** | Set **per-role resource limits & autoscaling** (ingest is bursty; query is latency-sensitive), and keep dependency hygiene tight since the in-image roles share one image. The headless-browser **crawl** role is **already peeled into its own image** for exactly this reason (Chromium's footprint is unlike the other pods); a future audio/Whisper worker is the next natural candidate — the per-subject consumer boundary makes each such split a low-friction refactor. |
 
 📐 Full architecture diagram: [system-architecture.excalidraw](specs/001-contextengine-mvp/diagrams/system-architecture.excalidraw)
 
@@ -269,6 +296,56 @@ recover → request-id / trace → auth (JWT or device PAT) → tenant (SET LOCA
 
 Shared middleware lives in `backend-go/internal/shared/middleware/`; the **kernel never imports product code** (depguard-enforced), keeping these guarantees reusable.
 
+### External & local agents — two entry modes, one policy
+
+An external or local agent (Cursor, Claude Code, Cline, a custom script) integrates through **two ingresses**, and the security posture is the whole point: whatever the agent does, it hits an **enforcement point (PEP)** that reads the **one** authoritative policy the Go kernel owns.
+
+- **LLM calls** go one of two ways — this is the **only** thing the mode changes:
+  - **`proxy` (default)** — the agent points `LLM_BASE_URL` at the OpenAI-compatible **`POST /llm/proxy`** (Go BFF). Every call passes the middleware chain above: PAT auth, rate limit, `413` body cap, **moderation**, token budget, and **credit deduction** — then the LLM Gateway resolves an alias and forwards to the provider.
+  - **`byok`** — the agent calls **its own provider directly**; the server never sees the call, so it is **not moderated and not metered**. Admins can disable BYOK per workspace.
+- **Tool / knowledge calls** go **one way, always** — the **MCP server on `:8002`** (Python), regardless of LLM mode. External agents reach it *directly*, bypassing the Go chain, so the MCP endpoint is its **own PEP** that re-applies the same request-level controls, reading the **same** policy stores.
+
+```mermaid
+flowchart TB
+    AGENT["🤖 External / local agent · Cursor · Claude Code · Cline · custom<br/>authenticates with a scoped, revocable device PAT (user + workspace)"]
+
+    AGENT -->|"① LLM call"| MODE{"LLM mode<br/>(the ONLY difference)"}
+    AGENT -->|"② tool call — ALWAYS server-side"| MCP
+
+    MODE -->|"proxy · default"| PROXY["POST /llm/proxy · Go BFF PEP<br/>• PAT auth → ws from PAT (never body)<br/>• rate limit · 413 body cap<br/>• moderation (Node 0)<br/>• token budget · credit deduct"]
+    MODE -->|"byok"| BYOK["agent's own provider key<br/>bypasses the server entirely<br/>❌ no moderation · ❌ no metering<br/>admin-disableable per workspace"]
+
+    PROXY --> GW["🐍 LLM Gateway<br/>alias · one-hop fallback · trace · llm_call_log"] --> PROV["☁️ LLM provider"]
+    BYOK -.-> PROV
+
+    MCP["🐍 MCP server :8002 · Python PEP<br/>• PAT validate + instant revocation<br/>• rate limit · 413 body cap<br/>• allowed_tools allowlist<br/>• SET app.workspace_id / user_id / clearance<br/>• agent_audit_log"] --> DATA[("Postgres RLS<br/>Qdrant payload pre-filter")]
+
+    AUTH["🔑 One policy authority — owned by the Go kernel<br/>device PATs · agent_policies · budgets · rate-limit counters<br/>every PEP READS it; none keeps a copy (research §19)"]
+    AUTH -. read .-> PROXY
+    AUTH -. read .-> MCP
+```
+
+**Where each guarantee is actually enforced** — in either mode:
+
+| Control (the "how") | `proxy` LLM call — Go `/llm/proxy` | `byok` LLM call — direct to provider | **MCP tool call — `:8002` (both modes)** |
+|---|---|---|---|
+| PAT auth + instant revocation | ✅ Go, shared Redis PAT store | ❌ server never sees it | ✅ Python, **same** Redis PAT store |
+| Rate limit / daily quota | ✅ shared Redis counters | ❌ | ✅ **same** Redis counters |
+| Body-size cap (`413`) | ✅ | ❌ | ✅ |
+| Moderation / injection gate | ✅ before any spend | ❌ agent's own concern | n/a — tools are read-only, args are typed |
+| Credit metering | ✅ budget gate → `billing.deduct` | ❌ not metered | ✅ per AI op (embed/rerank) → `billing.deduct` |
+| Tool ACL (`allowed_tools`) | — (LLM pass-through) | — | ✅ allowlist per dispatch, shared `agent_policies` |
+| RLS + clearance pre-filter | — | — | ✅ `app.*` GUCs → Postgres RLS + Qdrant filter (SC-001) |
+| Audit trail | `llm_call_log` | ❌ | ✅ one `agent_audit_log` row per call |
+
+- **Tool calls are always server-side.** A `byok` agent still gets `allowed_tools` enforcement, RLS-scoped knowledge access, and full audit — it only forgoes LLM-level **moderation** and **credit metering**.
+- **One policy, many enforcement points (research §19).** Each rule has exactly one authoritative source — `agent_policies` (Postgres) for tool ACL + budgets, one Redis store for PAT validity + rate-limit counters — read by *both* the Go chain and the Python MCP PEP, **never a second copy**. So a **revoked PAT dies at both ingresses** on its next call, and there is no policy to drift.
+- **Configure both for parity.** `/llm/proxy` alone gives governance + metering but **no RAG / knowledge access**; the MCP server is what grants (access-scoped) knowledge. To match the built-in chat, an external agent configures **both** endpoints.
+- **Long-horizon tasks require `proxy` mode.** The server executes the agent loop and cannot make AI calls with a provider key it doesn't hold, so `byok` is surfaced as **ineligible** for long-horizon (not a silent failure). A `byok` agent can still drive its *own* loop over every MCP tool from its own client — that just produces no server-side `agent_run` (spec Clarification 2026-07-23).
+- **Framed as convenience, verified later.** Members choose *"use the AISAT gateway"* vs *"use your own AI provider"* (never the `proxy`/`byok` jargon); Phase 1 records the declared mode, and Phase 2 compares it against observed traffic to flag drift (e.g., a `proxy` agent whose calls never arrive because a provider key is still exported).
+
+📐 Device registration + credit/tool path: [local-agent-flow.excalidraw](specs/001-contextengine-mvp/diagrams/addition/local-agent-flow.excalidraw) · 📄 LLM modes: [llm-gateway.md](specs/001-contextengine-mvp/contracts/llm-gateway.md) · MCP PEP parity: [mcp-tools.md](specs/001-contextengine-mvp/contracts/mcp-tools.md)
+
 ---
 
 ## ✨ Core Capabilities
@@ -285,7 +362,7 @@ Shared middleware lives in `backend-go/internal/shared/middleware/`; the **kerne
 | 🔔 **Notifications** | In-app inbox + opt-in email, per-category preferences, recipient-scoped (never leaks across members/workspaces). |
 | 🔍 **Observable architecture** | A per-answer debug panel exposes every retrieval/generation step, scores, tokens, and credits. |
 
-📋 Seven prioritized user stories (US1–US8) with acceptance scenarios: [spec.md](specs/001-contextengine-mvp/spec.md)
+📋 Eight prioritized user stories (US1–US8) with acceptance scenarios: [spec.md](specs/001-contextengine-mvp/spec.md)
 
 ---
 
@@ -613,7 +690,7 @@ This repository is **spec-driven** (GitHub Spec Kit). The design package is the 
 | Artifact | Purpose |
 |---|---|
 | 🏛️ [constitution.md](.specify/memory/constitution.md) | Ten governing principles; every plan passes a Constitution Check gate. |
-| 📋 [spec.md](specs/001-contextengine-mvp/spec.md) | Feature spec — 8 user stories, ~36 functional requirements, success criteria, clarifications. |
+| 📋 [spec.md](specs/001-contextengine-mvp/spec.md) | Feature spec — 8 user stories, ~39 functional requirements, success criteria, clarifications. |
 | 🗺️ [plan.md](specs/001-contextengine-mvp/plan.md) | Implementation plan, technical context, performance budgets, project structure. |
 | 🔬 [research.md](specs/001-contextengine-mvp/research.md) | Phase 0 research and decision rationale. |
 | 🗄️ [data-model.md](specs/001-contextengine-mvp/data-model.md) | Entity catalog, RLS policies, partitions, access-control invariants. |
@@ -630,7 +707,7 @@ Source of truth for every system boundary and the target of contract tests — [
 |---|---|
 | [bff-rest.md](specs/001-contextengine-mvp/contracts/bff-rest.md) | Go BFF public REST + SSE endpoints |
 | [nats-subjects.md](specs/001-contextengine-mvp/contracts/nats-subjects.md) | NATS subject schema (ingestion / query / billing) |
-| [mcp-tools.md](specs/001-contextengine-mvp/contracts/mcp-tools.md) | 9 MCP tools across 3 categories |
+| [mcp-tools.md](specs/001-contextengine-mvp/contracts/mcp-tools.md) | 8 MCP tools across 3 categories |
 | [llm-gateway.md](specs/001-contextengine-mvp/contracts/llm-gateway.md) | Python LLM gateway interface, aliases, fallback |
 | [sse-events.md](specs/001-contextengine-mvp/contracts/sse-events.md) | SSE event taxonomy (BFF ↔ frontend) |
 
