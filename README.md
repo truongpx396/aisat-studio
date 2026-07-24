@@ -65,7 +65,7 @@ This is not a toy RAG demo. It is designed around the constraints real productio
 | 🛡️ **Prompt-injection resistance** | Access enforced at the data layer, *never* by prompt. Injection / disallowed inputs are **refused before retrieval or spend** (SC-007). Embedded "ignore previous instructions" in documents is treated as inert reference text. |
 | 💸 **Exact cost accounting** | Redis hot-path credit ledger + PostgreSQL durable ledger with **idempotency keys** — no double-charge (SC-006), rehydrate-on-cold-start + hourly reconciliation. |
 | ⚡ **Performance budgets** | API **p95 < 200ms** (non-LLM paths); retrieval `recall@10 ≥ 0.85`, `MRR@10 ≥ 0.70`; first upload → cited answer **< 5 min**. |
-| 🔌 **Vendor resilience** | All LLM access funneled through a **single gateway** with `fast`/`smart`/`embed`/`rerank` aliases and **one-hop provider fallback** — a single-vendor outage degrades, never downs, the product. |
+| 🔌 **Vendor resilience** | All LLM access funneled through a **standalone gateway service** (LiteLLM, Bifrost-swappable) with `fast`/`smart`/`embed`/`rerank` aliases, **multi-key load-balancing**, and **one-hop provider fallback** — a single-vendor outage degrades, never downs, the product. |
 | 🔭 **Full observability** | Langfuse + OpenTelemetry tracing; a per-answer **debug panel** exposes intent, tool, index tier, access-filter result, rerank scores, model, tokens, and credits. |
 | 🧪 **Verifiable quality** | **TDD is NON-NEGOTIABLE**; contract-first boundaries; **Testcontainers** for real-infra integration tests; **Playwright** E2E; 80% coverage floor per runtime; a hard access-filter assertion in the eval seed set. |
 | 📈 **Scalability** | Stateless Go BFF replicas, horizontally-scaled Python worker pods per NATS subject, partitioned Postgres, Redis hot path, hybrid-vector Qdrant. |
@@ -97,12 +97,15 @@ flowchart TB
     subgraph PY["🐍 Python ML / Agent Tier (3.12) · deploy roles: ingest · query · enrich · janitor"]
         Ingest["Ingestion Pipeline<br/>convert · caption · chunk · tag · embed"]
         Agent["LangGraph RAG Agent<br/>7+1 nodes · Mem0 · semantic cache"]
-        Gateway["LLM Gateway — single chokepoint<br/>fast/smart/embed/rerank + fallback"]
         MCP["MCP Tool Server — 8 tools / 3 categories"]
     end
 
     subgraph CRAWL["🕷️ Crawl4AI — separate single deployment"]
         Crawl["crawl worker<br/>headless browser · SSRF-guarded fetch"]
+    end
+
+    subgraph GATEWAY["🔌 LLM Gateway — standalone service (LiteLLM · Bifrost-swappable)"]
+        Gateway["aliases · multi-key LB · one-hop fallback<br/>only holder of provider keys"]
     end
 
     subgraph DATA["🗄️ Backing Stores"]
@@ -136,7 +139,7 @@ flowchart TB
 **Coordination seams**
 - **NATS** is the async bus between Go and Python (ingestion / query / billing subjects).
 - **Redis** is the low-latency control plane: credit fast-path, idempotency guards, rate limits / quotas, security throttling, LangGraph checkpoints, semantic answer-cache, and the outbox queue (see [Redis — the Production Hot Path](#-redis--the-production-hot-path)).
-- **The LLM Gateway** (`llm_gateway.py`) is the *only* place model IDs exist — business code uses aliases.
+- **The LLM Gateway** is a **standalone OpenAI-wire service** (LiteLLM, Bifrost-swappable) — the *only* place model IDs + provider keys live; both runtimes call it by alias through a thin client. Its own budget + cache are **off**: credit metering stays single-writer in Go, and the clearance-scoped answer-cache stays in the app (SC-006 / SC-001).
 - **The MCP server** is the *only* tool surface — every dispatch is allowlist-checked.
 
 #### Deployable runtimes at a glance
@@ -153,6 +156,7 @@ The system builds into **three images**, each deployed as one or more independen
 | | **`enrich`** | `enrich.note.*` subject | note-enrichment orchestration (distill → draft) | consumer lag |
 | | **`janitor`** | `agent.janitor.tick` | single-owner stale-`agent_run` re-queue | single-owner |
 | **`crawl` / Crawl4AI** (**separate image**) | **`crawl`** | `ingestion.crawl.*` subject | headless-browser (Chromium) fetch, SSRF-guarded | its own deployment |
+| **`llm-gateway`** (LiteLLM · Bifrost-swappable) | **standalone service** | `:4000` (OpenAI-wire) | aliases · multi-key LB · one-hop fallback · sole holder of provider keys | in-flight requests |
 
 > **Note the two things people usually get wrong here:** the **email/notification** worker and the **billing** worker are **Go** (`cmd/worker`) roles — not Python — because they carry no ML; and the **crawl** worker is peeled out into its **own separate deployment** rather than living on the shared Python pods (see below). The two subsections that follow expand the Go and Python splits.
 
@@ -301,7 +305,7 @@ Shared middleware lives in `backend-go/internal/shared/middleware/`; the **kerne
 An external or local agent (Cursor, Claude Code, Cline, a custom script) integrates through **two ingresses**, and the security posture is the whole point: whatever the agent does, it hits an **enforcement point (PEP)** that reads the **one** authoritative policy the Go kernel owns.
 
 - **LLM calls** go one of two ways — this is the **only** thing the mode changes:
-  - **`proxy` (default)** — the agent points `LLM_BASE_URL` at the OpenAI-compatible **`POST /llm/proxy`** (Go BFF). Every call passes the middleware chain above: PAT auth, rate limit, `413` body cap, **moderation**, token budget, and **credit deduction** — then the LLM Gateway resolves an alias and forwards to the provider.
+  - **`proxy` (default)** — the agent points `LLM_BASE_URL` at the OpenAI-compatible **`POST /llm/proxy`** (Go BFF). Every call passes the middleware chain above: PAT auth, rate limit, `413` body cap, **moderation**, token budget, and **credit deduction** — then forwards to the standalone LLM Gateway (LiteLLM, `:4000`), which resolves the alias, load-balances across keys, and calls the provider (falling over one hop on failure).
   - **`byok`** — the agent calls **its own provider directly**; the server never sees the call, so it is **not moderated and not metered**. Admins can disable BYOK per workspace.
 - **Tool / knowledge calls** go **one way, always** — the **MCP server on `:8002`** (Python), regardless of LLM mode. External agents reach it *directly*, bypassing the Go chain, so the MCP endpoint is its **own PEP** that re-applies the same request-level controls, reading the **same** policy stores.
 
@@ -315,7 +319,7 @@ flowchart TB
     MODE -->|"proxy · default"| PROXY["POST /llm/proxy · Go BFF PEP<br/>• PAT auth → ws from PAT (never body)<br/>• rate limit · 413 body cap<br/>• moderation (Node 0)<br/>• token budget · credit deduct"]
     MODE -->|"byok"| BYOK["agent's own provider key<br/>bypasses the server entirely<br/>❌ no moderation · ❌ no metering<br/>admin-disableable per workspace"]
 
-    PROXY --> GW["🐍 LLM Gateway<br/>alias · one-hop fallback · trace · llm_call_log"] --> PROV["☁️ LLM provider"]
+    PROXY --> GW["🔌 LLM Gateway (LiteLLM · Bifrost-swappable)<br/>alias · multi-key LB · one-hop fallback"] --> PROV["☁️ LLM provider"]
     BYOK -.-> PROV
 
     MCP["🐍 MCP server :8002 · Python PEP<br/>• PAT validate + instant revocation<br/>• rate limit · 413 body cap<br/>• allowed_tools allowlist<br/>• SET app.workspace_id / user_id / clearance<br/>• agent_audit_log"] --> DATA[("Postgres RLS<br/>Qdrant payload pre-filter")]
@@ -587,6 +591,7 @@ Every answer is fully traceable. The **debug panel** (US5) surfaces, per query: 
 |---|---|
 | **Go BFF / Gateway / Kernel** | Go 1.23 · Gin · GORM · nats.go · go-redis · OpenTelemetry · zerolog · Sentry |
 | **Python ML / Agent Tier** | Python 3.12 · FastAPI · LangGraph · Mem0 · BAML · FastMCP · MarkItDown · Crawl4AI · qdrant-client · Langfuse SDK |
+| **LLM Gateway** | LiteLLM (standalone, OpenAI-wire) · Bifrost-swappable · aliases · multi-key LB · one-hop fallback · sole provider-key holder |
 | **Frontend** | React 19 · Vite · TypeScript 5.x · native EventSource/SSE · PostHog |
 | **Data** | PostgreSQL (RLS) · Redis · Qdrant (hybrid BM25/SPLADE + dense) · S3 |
 | **Async / Edge** | NATS · Caddy (reverse proxy + auto TLS) · CloudFront (prod CDN) |
@@ -642,7 +647,7 @@ aisat-intel/
 │   ├── src/
 │   │   ├── routers/                   #   ingest · query · crawl · admin (FastAPI)
 │   │   ├── services/
-│   │   │   ├── llm_gateway.py         #     single LLM chokepoint (aliases · fallback · budget · trace)
+│   │   │   ├── llm_gateway.py         #     thin client to the standalone LLM gateway (LiteLLM/Bifrost): clearance-cache · PII scrub · budget gate · spend emit · trace
 │   │   │   ├── ingestion/             #     pipeline · chunker · captioner · markitdown · crawler · tagger
 │   │   │   ├── retrieval/             #     hybrid · reranker · hot_cold · filter
 │   │   │   └── agent/                 #     graph (7+1 nodes) · memory (Mem0) · semantic cache · suggestions
@@ -662,7 +667,8 @@ aisat-intel/
 │   └── tests/                         #   vitest (unit/component) + Playwright (e2e/)
 │
 ├── deploy/
-│   ├── docker-compose.yml             # local dev: postgres · redis · qdrant · nats · casdoor · caddy
+│   ├── docker-compose.yml             # local dev: postgres · redis · qdrant · nats · casdoor · caddy · llm-gateway
+│   ├── llm-gateway/                   # standalone LLM gateway config (LiteLLM config.yaml; Bifrost-swappable) — aliases · keys · LB
 │   └── Caddyfile                      # reverse proxy · automatic TLS · static SPA serving
 │
 ├── specs/001-contextengine-mvp/       # 📋 the full design package (source of truth)
@@ -708,7 +714,7 @@ Source of truth for every system boundary and the target of contract tests — [
 | [bff-rest.md](specs/001-contextengine-mvp/contracts/bff-rest.md) | Go BFF public REST + SSE endpoints |
 | [nats-subjects.md](specs/001-contextengine-mvp/contracts/nats-subjects.md) | NATS subject schema (ingestion / query / billing) |
 | [mcp-tools.md](specs/001-contextengine-mvp/contracts/mcp-tools.md) | 8 MCP tools across 3 categories |
-| [llm-gateway.md](specs/001-contextengine-mvp/contracts/llm-gateway.md) | Python LLM gateway interface, aliases, fallback |
+| [llm-gateway.md](specs/001-contextengine-mvp/contracts/llm-gateway.md) | Standalone LLM gateway service (LiteLLM · Bifrost-swappable) + per-runtime client |
 | [sse-events.md](specs/001-contextengine-mvp/contracts/sse-events.md) | SSE event taxonomy (BFF ↔ frontend) |
 
 ---
