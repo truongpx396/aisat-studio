@@ -645,7 +645,7 @@ a single filter:
 |------|---------|
 | `user:<uuid>` | Direct share to one member |
 | `group:<uuid>` | AISAT-native workspace group |
-| `ext:<source>:<external_id>` | Mirrored external group (Confluence space, Jira project role, Git team) |
+| `ext:<source>:<external_id>` | Mirrored external group (Confluence space, Jira project role, Git team, Drive shared drive, Notion teamspace) |
 
 A caller's principal set is resolved at session-mint time — `user:self` ∪ native groups ∪
 external groups from the IdP/SCIM claim or connector sync — and carried in the request
@@ -723,9 +723,17 @@ UI that stops being scannable. If a customer genuinely needs more, widening the 
 is a one-line migration — do it on demand rather than paying the UI complexity up front.
 Above five tiers is usually a sign the org wants *groups*, not more rungs.
 
-#### Enforcement (both layers, unchanged in shape)
+#### Enforcement (both layers, additive)
 
-- **Postgres RLS:** `... AND access_level <= current_setting('app.clearance')::int AND (allowed_principals = '{}' OR allowed_principals && current_setting('app.principals')::text[])` — `&&` is array-overlap, GIN-indexable.
+Phase 1 enforces clearance at the Qdrant payload filter and the library-list repo query;
+Postgres RLS itself scopes only `workspace_id` (+ `user_id` for `notifications`). This axis
+adds the clearance and principal predicates into RLS **and** the payload filter. The Tenant
+middleware already sets `SET LOCAL app.clearance` (seeded in Phase 1 as a defense-in-depth
+seam — [data-model.md](./001-contextengine-mvp/data-model.md)); this feature adds one more GUC,
+`SET LOCAL app.principals`, resolved from the caller's principal set, and no other
+request-context plumbing changes.
+
+- **Postgres RLS:** `... AND access_level <= current_setting('app.clearance')::int AND (allowed_principals = '{}' OR allowed_principals && current_setting('app.principals')::text[])` — `&&` is array-overlap, GIN-indexable. (Adding the `access_level` conjunct to RLS is itself new — Phase 1 keeps clearance out of RLS — but the `app.clearance` GUC that backs it is already set.)
 - **Qdrant:** add `allowed_principals` to the payload + payload-index list
   ([data-model.md](./001-contextengine-mvp/data-model.md) "Payload indexes"); filter
   `must: [ workspace_id == ctx, access_level <= clearance, <empty-or-overlap on principals> ]`.
@@ -771,6 +779,67 @@ Above five tiers is usually a sign the org wants *groups*, not more rungs.
 External principals only mean something if a querying user can be resolved to them, so
 **IdP group claims / SCIM sync becomes a dependency of this feature**, not an optional
 extra. It is a larger lift than the schema change and should be sequenced first.
+
+#### Per-source ACL mapping (decided)
+
+The `ext:<source>:<external_id>` principal is only as trustworthy as the mapping from each
+source's *native* access primitive — which is exactly what `knowledge_sources.principal_mapping`
+encodes. Git, Jira, and Confluence express access as **groups**, so the mapping is mechanical.
+**Drive and Notion do not** — they mix group membership with per-object shares and public/link
+sharing that have no group analogue — so they need explicit handling, and this table is
+therefore normative, not illustrative.
+
+| Source | Native access primitive → principal | Notes |
+|--------|-------------------------------------|-------|
+| `git` | team / repo-collaborator list → `ext:git:team:<slug>` (or `ext:git:repo:<id>`) | Clean — membership is a group. |
+| `jira` | project role / group → `ext:jira:project:<key>:<role>` or `ext:jira:group:<name>` | Clean — role/group backed. |
+| `confluence` | space permission group → `ext:confluence:space:<key>` | Clean — a space *is* a group. |
+| `drive` | shared drive → `ext:drive:shareddrive:<id>`; file/folder shared to a Google group → `ext:drive:group:<email>`; named-user share → `user:<uuid>` (email↔member) | **Per-object model.** "Anyone with the link" / "anyone in the domain" are **not** groups — see the fail-closed rule below. |
+| `notion` | teamspace → `ext:notion:teamspace:<id>`; page share to a Notion group → `ext:notion:group:<id>`; guest share → `user:<uuid>` | **Per-object + guests + inheritance.** "Share to web" (public page) is fail-closed like Drive link-sharing. |
+
+**Non-group source ACLs resolve to a concrete principal, or the record is not indexed
+(extends rule 4).** For every mirrored record the connector must resolve its *effective
+audience* to a principal set — `user:` for named shares, `ext:` for groups/shared-drives/
+teamspaces — or fail closed. **Public, link, and domain-wide sharing is never auto-mapped to
+internal visibility.** Such a record is indexed only if the configuring admin explicitly opts
+the source into a domain principal (`ext:drive:domain:<domain>` / `ext:notion:workspace:<id>`)
+that every member holds; otherwise it is skipped. Silently treating "anyone with the link" as
+"workspace-internal" is the single most likely way this feature widens access.
+
+#### ACL freshness and revocation lag (decided)
+
+A mirrored ACL is a **copy**, and two copies drift from their source independently: the
+*record's* `allowed_principals` (connector-owned) and the *caller's* principal set
+(session-owned). The window between an access change at source (a member removed from a
+Confluence space, a Drive file un-shared) and its reflection here is a real exposure a
+security review will ask you to quantify.
+
+- **Two propagation paths, each bounded.**
+  - *Record ACL* — refreshed by the same connector sync that mirrors content:
+    **webhook-driven** where the source emits ACL-change events (Git, Jira, Confluence,
+    Notion), and a periodic **`knowledge.acl.reconcile.tick`** (single-owner scheduled-tick
+    pattern, [research.md §14–§15](./001-contextengine-mvp/research.md)) for sources without
+    reliable ACL webhooks — **Drive folder-permission changes are notoriously lossy**, so
+    Drive is poll-reconciled, never trusted to push.
+  - *Caller principal set* — resolved at **session-mint time** from the IdP/SCIM claim
+    ([Consequence to schedule](#consequence-to-schedule)), so it is at most one session-TTL
+    stale. Phase 1 already forces a re-read of role/clearance on change via the opaque-session
+    model; **principal-set changes get identical treatment — revoking a group at the IdP
+    deletes the affected Redis session keys so the next request re-resolves**, rather than
+    waiting for natural session expiry.
+- **Effective revocation lag = max(record-ACL propagation, caller-principal propagation)**,
+  published as an SLO: default **≤ 5 min** for webhook sources, bounded by the reconcile
+  interval (default **15 min**) for poll-only sources (Drive). This number is a deliverable,
+  not an implementation detail.
+- **Fail-closed on a staleness ceiling.** If a source's ACL sync has not succeeded within
+  `max_acl_staleness` (per-source, default **24 h**), its records flip to
+  `blocked_acl_unresolved` and **drop out of retrieval** — serving content under an ACL you
+  can no longer verify is rule 4's failure mode deferred in time, not avoided.
+- **Deny is immediate on the read path, even against a stale copy.** Enforcement is a
+  *pre-filter* (`allowed_principals && caller_principals`) recomputed every query — there is
+  no cached "allow" to expire. A caller who lost a group stops matching the instant *either*
+  copy updates, so whichever path is faster wins; the lag above is the worst case, not the
+  typical one.
 
 ### Data model
 
@@ -864,11 +933,11 @@ Provider-agnostic external source connections per workspace (mirrors the Billing
 |--------|------|-------|
 | `id` | UUID v7 PK | |
 | `workspace_id` | UUID NOT NULL | RLS column |
-| `kind` | TEXT NOT NULL | `git` \| `jira` \| `confluence` |
+| `kind` | TEXT NOT NULL | `git` \| `jira` \| `confluence` \| `drive` \| `notion` |
 | `config` | JSONB NOT NULL | repo/project/space selectors; **secret refs only**, never raw secrets |
 | `default_artifact_type_id` | UUID NULL | how to type incoming records |
 | `default_access_level` | INT NOT NULL | L1–L5 stamped on records from this source; capped at the configuring admin's clearance (access-model rule 5) |
-| `principal_mapping` | JSONB NULL | How source ACL entities map to `ext:<source>:<id>` principals; `NULL` = connector resolves natively |
+| `principal_mapping` | JSONB NULL | How source ACL entities map to `ext:<source>:<id>` principals (see [Per-source ACL mapping](#per-source-acl-mapping-decided)); `NULL` = connector resolves natively |
 | `last_synced_at` | TIMESTAMPTZ NULL | |
 | `sync_status` | TEXT | `idle` \| `syncing` \| `error` \| `blocked_acl_unresolved` (fail-closed, rule 4) |
 | `created_at`, `updated_at` | TIMESTAMPTZ | |
@@ -951,6 +1020,7 @@ To append to
 | `knowledge.artifact.updated.<type>.<workspace_id>` | BFF / ingestion worker | **subscribing agents** + internal indexers | `{ artifact_id, type, origin, lifecycle_status, version, change: created\|updated\|deprecated, trace_id }` — the change-subscription backbone for "agents stay current" |
 | `ingestion.source.<kind>.<workspace_id>` | connector webhook handler | Python connector worker | `{ source_id, kind, records[], source_version }` → routes into the existing `ingestion.*` pipeline |
 | `knowledge.staleness.tick` | scheduled `cmd/worker` | staleness sweeper | periodic re-check of mirrored `source_version`; sets `documents.stale` — reuses the single-owner scheduled-tick pattern ([research.md §14–§15](./001-contextengine-mvp/research.md)) |
+| `knowledge.acl.reconcile.tick` | scheduled `cmd/worker` | ACL reconcile sweeper | periodic re-pull of source ACLs for poll-only sources (Drive); refreshes `allowed_principals`, enforces `max_acl_staleness` fail-closed — single-owner tick, see [ACL freshness and revocation lag](#acl-freshness-and-revocation-lag-decided) |
 
 ### Go / Python worker surface
 
@@ -965,23 +1035,81 @@ knowledge/
     git.go             # adapter (repo path; commit SHA as source_version)
     jira.go            # adapter (issue key; updated marker)
     confluence.go      # adapter (page id; version)
-  sync.go              # webhook → ingestion.source.* → pipeline; staleness sweep
+    drive.go           # adapter (file/folder id; modifiedTime + revision; poll-reconciled ACL)
+    notion.go          # adapter (page/block id; last_edited_time as source_version)
+  sync.go              # webhook → ingestion.source.* → pipeline; staleness + ACL-reconcile sweep
 ```
 
 Extraction/typing/embedding of mirrored records reuses the Phase 1 Python ingestion
-pipeline (`markitdown`, `tagger`, `chunker`) — a connector only produces raw records +
-`source_ref`/`source_version`; the existing pipeline does the rest.
+pipeline (`markitdown`, `tagger`, `chunker`) — a connector only produces **canonical
+records** + `source_ref`/`source_version`; the existing pipeline does the rest. What
+"canonical record" means, and how prose vs structured data is routed, is specified next.
+
+### Canonical record representation and sync routing (decided)
+
+A connector never stores the source artifact and never becomes its editing surface. It emits
+a **canonical record** — one of two shapes by data type — carrying a metadata envelope, from
+which the existing pipeline derives chunks/vectors/edges. Three layers, each with one owner:
+
+| Layer | What it is | Owner / lifetime |
+|-------|-----------|------------------|
+| **Raw** | the live artifact in Notion/Jira/Drive/Git | The source system (SoT). Re-fetchable via `source_ref` + `source_version`; a cold copy is persisted **only** for sources expensive/rate-limited to re-pull or deletable at source before re-sync. Never the store of record here. |
+| **Canonical** | normalized **Markdown body** (prose) *and/or* **typed fields** (structured) + the metadata envelope | AISAT. This is what re-embedding and human review read. |
+| **Derived** | Qdrant chunks + vectors (metadata as payload) · `knowledge_edges` | AISAT. Rebuilt from Canonical; never authoritative. |
+
+**Metadata rides as columns/payload, never inside the embedded text.** The envelope fields —
+`source_ref`, `source_version`, `synced_at`, `stale`, `origin`, `artifact_type`,
+`access_level`, `allowed_principals`, `tags`, `summary` — are authoritative as **`documents`
+columns + Qdrant payload**, because retrieval *filters and enforces* on them (RLS, ACL overlap,
+staleness diff, edge traversal). A Markdown-with-YAML-frontmatter form MAY be produced as a
+transport / export / Git-backing view, but it is a *rendering* of those columns, not their
+store — a YAML `allowed_principals:` line is not query-time enforceable. **The embedded chunk
+text contains content only.** Folding metadata/ACL into the vector both degrades retrieval
+(boilerplate) and opens a leak/injection surface — the same discipline the contextual-retrieval
+prefix already follows (embedded, but "not a citation span";
+[data-model.md §Qdrant payload](./001-contextengine-mvp/data-model.md)).
+
+**Routing by data shape** (this refines "reuse the pipeline" — it is verbatim only for prose):
+
+| Source shape | Canonical form | Answered by |
+|--------------|----------------|-------------|
+| **Prose / unstructured** — Confluence & Notion pages, Google Docs, specs, READMEs | normalized **Markdown** → structure-aware + parent/child chunk → embed | Tier-1 semantic retrieval |
+| **Structured / tabular** — Jira issues, spreadsheet rows, DB tables, metrics | **typed fields** (a structured record), *not* primarily vectorized; MAY *also* emit a short Markdown projection (`PROJ-123 · login bug · open · owner:…`) for the "find records *about* X" case | Tier-2 fixed `query_*` tools ([research §7](./001-contextengine-mvp/research.md)); dual-represented records also reachable via Tier-1 |
+| **Binary / visual** — images, diagrams | caption (Phase 1 captioner) → the *caption* embeds; the asset is linked | Tier-1 semantic retrieval |
+
+Why the structured carve-out is not optional: "how many P1 bugs are open in project X" /
+"sum of Q3 budget" is a structured query, and flattening a spreadsheet into a Markdown table as
+its *only* representation makes the LLM answer such questions from prose — plausible and wrong.
+Landing the fields keeps count/sum in code, the same reason Phase 1 chose fixed tools over
+Text-to-SQL ([research §7](./001-contextengine-mvp/research.md)). Whether a given
+`artifact_type` is embedded, made queryable, or both is a **per-type routing setting** (a
+genuinely doc-shaped spreadsheet — mostly prose + one table — routes to prose; a
+spreadsheet-as-database routes to structured), and composes with the existing
+`artifact_types.embed_policy` (`full_body` | `metadata_only`).
+
+**Cost of the structured path (not a config toggle).** There is no generic structured-ingestion
+mechanism: each structured source lands as its **own typed table + a hand-written,
+workspace-scoped `query_*` tool** registered in `agent_policies.allowed_tools`, exactly like the
+Phase 1 `employees`/`projects`/`metrics` demo trio ([data-model.md §Structured
+Records](./001-contextengine-mvp/data-model.md)). That per-source cost is the deliberate price
+of never exposing free-form Text-to-SQL (FR-008) — budget a table + a tool + an allowlist entry
+per structured connector.
 
 ### Phase 1 seams (little / no change required)
 
 - **`documents.data_type`** already exists as the LLM-suggested type — the overlay
   formalizes it; the new columns are additive and nullable.
-- **`ingestion.*` pipeline** is reused verbatim for connector sync; only the connector
+- **`ingestion.*` pipeline** is reused for connector sync (verbatim for prose; structured
+  records route to the Tier-2 tool path — see [Canonical record representation and sync
+  routing](#canonical-record-representation-and-sync-routing-decided)); only the connector
   adapters + the source subject are new.
 - **MCP server + `agent_policies.allowed_tools`** already gate read-only tools per
   role — Category D slots in the same way.
-- **RLS + Qdrant payload filters** already enforce clearance per document/chunk —
-  artifacts and edges reuse the identical pre-filter (SC-001).
+- **Qdrant payload filters + RLS** already scope every read (RLS = `workspace_id`; clearance
+  at the Qdrant payload + library-list repo query) — artifacts and edges reuse the identical
+  pre-filter, and the second access axis adds `allowed_principals` + `app.principals` to both
+  without new request-context plumbing (SC-001). See
+  [Enforcement](#enforcement-both-layers-additive).
 - **Mind Map edge model** — this note's `knowledge_edges` is the general table the
   Phase 2 Mind Map renders; build them together so the map reads persisted edges
   instead of a throwaway model.
@@ -998,6 +1126,11 @@ pipeline (`markitdown`, `tagger`, `chunker`) — a connector only produces raw r
 - [ ] **Fail-closed connectors** A record whose source ACL cannot be resolved is not
       indexed; the source is marked `blocked_acl_unresolved` rather than importing it
       wide open (rule 4).
+- [ ] **Metadata never embedded** The embedded chunk text is content only; `source_ref`,
+      `allowed_principals`, `source_version`, and the rest of the envelope ride as
+      `documents` columns + Qdrant payload, never inside the vector — no metadata/ACL leak
+      or retrieval-quality pollution. See [Canonical record representation and sync
+      routing](#canonical-record-representation-and-sync-routing-decided).
 - [ ] **Memory ACL partitioning** No memory is distilled across chunks with differing
       principal sets (rule 7) — verify with a test that a two-source memory is never
       injected for a user holding only one of the two groups.
@@ -1013,6 +1146,14 @@ pipeline (`markitdown`, `tagger`, `chunker`) — a connector only produces raw r
       `workspace_id` join, never raw ID.
 - [ ] **L2** Edge `evidence` stores score/hash refs, not raw source content; honors the
       30-day raw-retention policy.
+- [ ] **Revocation lag (freshness SLO)** Record-ACL and caller-principal propagation are each
+      bounded; effective revocation lag is within the published SLO (default 5 min webhook /
+      reconcile-interval poll), and a source past `max_acl_staleness` flips to
+      `blocked_acl_unresolved` and drops from retrieval. See [ACL freshness and revocation
+      lag](#acl-freshness-and-revocation-lag-decided).
+- [ ] **Public/link sharing never auto-internal** Drive "anyone with the link" / domain-wide
+      and Notion "share to web" are fail-closed (not indexed) unless an admin explicitly maps
+      them to a domain principal — never silently treated as workspace-internal.
 
 ### Open decisions
 
@@ -1030,8 +1171,11 @@ pipeline (`markitdown`, `tagger`, `chunker`) — a connector only produces raw r
 2. ~~**First connector.**~~ **RESOLVED 2026-07-22** — **Git first.** `source_version` is
    a commit SHA (exact, cheap to diff, no polling ambiguity), repo webhooks are simple to
    verify, and Git is where specs, agent definitions, and system design already live.
-   Jira and Confluence follow; both need richer ACL mapping and have fuzzier change
-   markers.
+   Jira and Confluence follow (group ACLs, fuzzier change markers). **Drive and Notion are a
+   third wave** — their per-object and public/link sharing has no clean group analogue, so
+   they depend on the [Per-source ACL mapping](#per-source-acl-mapping-decided) and the
+   poll-reconciled freshness path ([ACL freshness and revocation
+   lag](#acl-freshness-and-revocation-lag-decided)) before they can be indexed safely.
 3. ~~**Agent defs: authored vs mirrored.**~~ **RESOLVED 2026-07-22** — **mirrored from
    Git is the default and the recommended path; authored is the fallback.** This is the
    feature's own "extraction, not authoring" rule applied to itself: agent definitions

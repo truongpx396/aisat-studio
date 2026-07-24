@@ -134,7 +134,7 @@ Enrich is a spend producer like a query: Python computes cost and publishes `bil
 |------|---------|--------------|-----------|
 | `web_distill` module | called with user's `source_links` | called with **search-API result URLs**; same SSRF guard, same distill | No — same fn, new caller |
 | `agent_policies.allowed_tools[]` | (no web tool for agent) | add `web_search` to **`user` and `admin`** role rows | No — allowlist entries |
-| MCP tools | 9 tools | +`web_search(query) -> DistilledResult[]` | No — additive registration |
+| MCP tools | 8 tools | +`web_search(query) -> DistilledResult[]` | No — additive registration |
 | Agent graph | retrieves internal only | a **"need fresh info?" decision node** routes to `web_search` when internal retrieval is insufficient or the query is time-sensitive | No — new branch, existing nodes untouched |
 | Human-in-the-loop | accept-gate on enrich result | **per-search confirmation** before each fetch (gate the *action*, not just the result) | No — new confirmation step |
 | `operation_type` | `enrich` | `web_search` | No — new enum value |
