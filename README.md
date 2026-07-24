@@ -123,8 +123,8 @@ flowchart TB
     Agent --> Gateway
     Agent --> MCP
     Ingest --> Gateway
-    Ingest -. NATS ingestion.crawl .-> Crawl
-    Crawl -. distilled draft .-> Ingest
+    Ingest -.->|"NATS ingestion.crawl"| Crawl
+    Crawl -.->|"distilled draft"| Ingest
     Crawl --> Gateway
     Kernel --> PG & Redis & S3
     Agent --> Qdrant & Redis
