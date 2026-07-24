@@ -87,6 +87,10 @@ calls `/llm/proxy`. It needs no separate mode: every behaviour above is already 
 
 Configuring only `/llm/proxy` without the MCP server gives governance and metering but **no RAG or knowledge-base access**. To get the same capability as the built-in LangGraph chat, an external agent must configure both.
 
+## Transport (Go BFF ↔ gateway)
+
+The `/llm/proxy` hop is a **synchronous HTTP streaming pass-through** — not gRPC, not NATS (research §20). The Go BFF (`:8080`) runs the policy chain, then forwards the OpenAI-shaped request to the gateway's internal HTTP endpoint on the Python FastAPI app (`:8000`) over HTTP/1.1, relaying a `stream:true` response **verbatim as SSE** (`text/event-stream`, flush-per-chunk, no buffering). Client disconnect cancels `request.Context()` → the forwarded HTTP request → `chat_stream` → the provider SDK stream (see "Cost settlement & stream cancellation" above). This is the **only** synchronous Go→Python call; all other Go↔Python traffic is async over NATS JetStream. Keeping HTTP+SSE end-to-end lets Go be a thin reverse-proxy that never re-serializes the OpenAI-wire payload; gRPC is rejected here because it would add a JSON↔protobuf↔SSE translation on both edges for a text-token stream, with no gain (research §20).
+
 ## Contract test obligations
 
 - A repeated `chat` carrying the same explicit `idem_key` (a retry) calls the provider once and deducts credits once (SC-006); a genuine re-ask of an identical question after the 60s content-hash window is treated as a fresh call (provider invoked, credits deducted), not silently deduplicated.
@@ -95,6 +99,7 @@ Configuring only `/llm/proxy` without the MCP server gives governance and meteri
 - A prompt containing an email/token is PII-scrubbed before it appears in any trace/eval store (FR-024).
 - Concurrent calls that each pass the budget gate but jointly exceed the balance settle to a **bounded-negative** balance (no worse than `−(in-flight concurrency × per-call ceiling)`), and the next hourly reconcile restores it to ledger truth (SC-006) — settlement is never skipped because the balance went to/below zero mid-flight.
 - A `chat_stream` whose client disconnects mid-stream **cancels the provider call** (the trace records no `output_tokens` produced after the disconnect timestamp) and deducts credits for **exactly the tokens emitted before cancel** — never zero, never the full `max_tokens` — under the call's `idem_key`.
+- A streaming `/llm/proxy` call relays the gateway's provider SSE frames **unbuffered** (flush-per-chunk, transport is HTTP streaming — never gRPC/NATS), and a client disconnect propagates as an HTTP request-context cancellation to the Python gateway within the same request (research §20).
 
 ---
 
